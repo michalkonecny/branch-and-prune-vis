@@ -11,4 +11,5 @@ import Halogen.VDom.Driver (runUI)
 main :: Effect Unit
 main = HA.runHalogenAff do
   body <- HA.awaitBody
-  runUI PlotTest.component unit body
+  -- runUI PlotTest.component unit body
+  runUI ListSteps.component unit body

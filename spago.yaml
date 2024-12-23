@@ -1,0 +1,18 @@
+package:
+  name: branch-and-prune-visualise
+  dependencies:
+    - aff
+    - console
+    - effect
+    - halogen
+    - halogen-subscriptions
+    - prelude
+    - strings
+    - tailrec
+  test:
+    main: Test.Main
+    dependencies: []
+workspace:
+  packageSet:
+    registry: 62.1.0
+  extraPackages: {}

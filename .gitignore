@@ -1,14 +1,16 @@
-.*
-!.gitignore
-!.github
 
-output
-generated-docs
-bower_components
-node_modules
+bower_components/
+node_modules/
+.pulp-cache/
+output/
+output-es/
+generated-docs/
+.psc-package/
+.psc*
+.purs*
+.psa*
+.spago
 
 package-lock.json
-*.lock
-
+.parcel-cache
 dist/
-prod/*

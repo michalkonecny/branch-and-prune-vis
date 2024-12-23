@@ -4,7 +4,6 @@ import Prelude
 
 import Data.Maybe (Maybe(..))
 import Data.String as String
-import Effect.Class (class MonadEffect)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
@@ -19,7 +18,7 @@ data Action = Initialize
 
 foreign import _getStepPlotDivId :: Array Int -> String
 
-component :: forall q i o m. (MonadEffect m) => H.Component q i o m
+component :: forall q i o m. H.Component q i o m
 component =
   H.mkComponent
     { initialState: \_ -> { steps: [] }
@@ -34,7 +33,7 @@ render :: forall cs m. State -> H.ComponentHTML Action cs m
 render state =
   HH.div [ HP.id (_getStepPlotDivId (map String.length state.steps)), HP.style "width:800px;height:600px;" ] []
 
-handleAction :: forall cs o m. (MonadEffect m) => Action → H.HalogenM State Action cs o m Unit
+handleAction :: forall cs o m. Action → H.HalogenM State Action cs o m Unit
 handleAction = case _ of
   Initialize -> do
     H.modify_ \st -> st { steps = ["step 1", "step 2 longer", "step 3", "step 4 up"] }

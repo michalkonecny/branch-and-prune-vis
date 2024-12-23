@@ -6,16 +6,19 @@
         "core": {
           "dependencies": [
             "aff",
+            "aff-promise",
             "console",
             "effect",
             "halogen",
             "halogen-subscriptions",
             "prelude",
             "strings",
-            "tailrec"
+            "tailrec",
+            "yoga-json"
           ],
           "build_plan": [
             "aff",
+            "aff-promise",
             "arrays",
             "avar",
             "bifunctors",
@@ -47,6 +50,7 @@
             "identity",
             "integers",
             "invariant",
+            "js-bigints",
             "js-date",
             "js-promise",
             "lazy",
@@ -64,6 +68,7 @@
             "partial",
             "prelude",
             "profunctor",
+            "record",
             "refs",
             "safe-coerce",
             "st",
@@ -76,6 +81,7 @@
             "unfoldable",
             "unsafe-coerce",
             "unsafe-reference",
+            "variant",
             "web-clipboard",
             "web-dom",
             "web-events",
@@ -84,7 +90,9 @@
             "web-pointerevents",
             "web-storage",
             "web-touchevents",
-            "web-uievents"
+            "web-uievents",
+            "yoga-json",
+            "yoga-tree"
           ]
         },
         "test": {
@@ -640,6 +648,15 @@
         "unsafe-coerce"
       ]
     },
+    "aff-promise": {
+      "type": "registry",
+      "version": "4.0.0",
+      "integrity": "sha256-Kq5EupbUpXeUXx4JqGQE7/RTTz/H6idzWhsocwlEFhM=",
+      "dependencies": [
+        "aff",
+        "foreign"
+      ]
+    },
     "arrays": {
       "type": "registry",
       "version": "7.3.0",
@@ -1070,6 +1087,16 @@
         "prelude"
       ]
     },
+    "js-bigints": {
+      "type": "registry",
+      "version": "2.2.1",
+      "integrity": "sha256-hKWZo9NxtsAaHmNXr6B8GY4c0olQbYLXPVGWm4TF2Ss=",
+      "dependencies": [
+        "integers",
+        "maybe",
+        "prelude"
+      ]
+    },
     "js-date": {
       "type": "registry",
       "version": "8.0.0",
@@ -1268,6 +1295,16 @@
         "tuples"
       ]
     },
+    "record": {
+      "type": "registry",
+      "version": "4.0.0",
+      "integrity": "sha256-Za5U85bTRJEfGK5Sk4hM41oXy84YQI0I8TL3WUn1Qzg=",
+      "dependencies": [
+        "functions",
+        "prelude",
+        "unsafe-coerce"
+      ]
+    },
     "refs": {
       "type": "registry",
       "version": "6.0.0",
@@ -1407,6 +1444,21 @@
         "prelude"
       ]
     },
+    "variant": {
+      "type": "registry",
+      "version": "8.0.0",
+      "integrity": "sha256-SR//zQDg2dnbB8ZHslcxieUkCeNlbMToapvmh9onTtw=",
+      "dependencies": [
+        "enums",
+        "lists",
+        "maybe",
+        "partial",
+        "prelude",
+        "record",
+        "tuples",
+        "unsafe-coerce"
+      ]
+    },
     "web-clipboard": {
       "type": "registry",
       "version": "6.0.0",
@@ -1491,6 +1543,58 @@
       "integrity": "sha256-5I+ut9JYno3wowti3vJGs1afKCm1ucppKuy+zhuSyss=",
       "dependencies": [
         "web-html"
+      ]
+    },
+    "yoga-json": {
+      "type": "registry",
+      "version": "5.1.0",
+      "integrity": "sha256-ei/fyvrh8fGgcqGrdRQ7+r6dwSYcfEGOFf5yKc1g7oE=",
+      "dependencies": [
+        "arrays",
+        "bifunctors",
+        "control",
+        "datetime",
+        "effect",
+        "either",
+        "exceptions",
+        "foldable-traversable",
+        "foreign",
+        "foreign-object",
+        "free",
+        "identity",
+        "integers",
+        "js-bigints",
+        "js-date",
+        "lists",
+        "maybe",
+        "newtype",
+        "nullable",
+        "numbers",
+        "ordered-collections",
+        "partial",
+        "prelude",
+        "record",
+        "strings",
+        "transformers",
+        "tuples",
+        "typelevel-prelude",
+        "unsafe-coerce",
+        "variant",
+        "yoga-tree"
+      ]
+    },
+    "yoga-tree": {
+      "type": "registry",
+      "version": "1.0.0",
+      "integrity": "sha256-wBjfEYrX1ffTHa/mE9B26C6td0FFfjYNnysTJ9/N8Hc=",
+      "dependencies": [
+        "arrays",
+        "control",
+        "foldable-traversable",
+        "free",
+        "maybe",
+        "prelude",
+        "tailrec"
       ]
     }
   }

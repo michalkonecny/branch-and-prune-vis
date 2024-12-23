@@ -2,6 +2,7 @@ package:
   name: branch-and-prune-visualise
   dependencies:
     - aff
+    - aff-promise
     - console
     - effect
     - halogen
@@ -9,6 +10,7 @@ package:
     - prelude
     - strings
     - tailrec
+    - yoga-json
   test:
     main: Test.Main
     dependencies: []

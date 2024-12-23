@@ -2,17 +2,20 @@ module App.ListSteps where
 
 import Prelude
 
+import App.Utils (actOnStateUntil)
+import Control.Promise (Promise)
+import Control.Promise as Promise
+import Data.Array as Array
 import Data.Maybe (Maybe(..))
-
-import Control.Monad.Rec.Class (forever)
+import Data.String as String
+import Data.Traversable (sequence)
+import Effect (Effect)
+import Effect.Aff (Aff)
 import Effect.Aff as Aff
 import Effect.Aff.Class (class MonadAff)
-
 import Halogen as H
 import Halogen.HTML as HH
--- import Halogen.HTML.Events as HE
 import Halogen.Subscription as HS
-
 
 type Step = String -- TODO
 
@@ -44,15 +47,37 @@ render state =
 handleAction :: forall cs o m. (MonadAff m) => Action -> H.HalogenM State Action cs o m Unit
 handleAction = case _ of
   Initialize -> do
-    -- _ <- H.subscribe =<< getSteps
-    -- pure unit
-    H.modify_ \st -> st { steps = ["step 1", "step 2 is longer", "step 3"] }
-  NewStep stepText -> H.modify_ \st -> st { steps = [ stepText ] <> st.steps }
+    _ <- H.subscribe =<< stepsEmitter
+    pure unit
+  NewStep stepText -> H.modify_ \st -> st { steps = st.steps <> [ stepText ] }
 
-getSteps :: forall m a. MonadAff m => m (HS.Emitter a)
-getSteps = do
+stepsEmitter :: forall m. MonadAff m => m (HS.Emitter Action)
+stepsEmitter = do
   { emitter, listener } <- H.liftEffect HS.create
-  _ <- H.liftAff $ Aff.forkAff $ forever do
-    -- H.liftEffect $ HS.notify listener (NewStep ...)
-    Aff.delay $ Aff.Milliseconds 1000.0
+  _ <- H.liftAff $ Aff.forkAff $ actOnStateUntil
+    { initState: { howManyReadSoFar: 0, done: false }
+    , action: dealWithNewStepsAndWaitABit listener
+    , shouldFinish: \s -> s.done
+    }
   pure emitter
+  where
+  dealWithNewStepsAndWaitABit listener { howManyReadSoFar } = do
+    steps <- getNewSteps howManyReadSoFar
+    Aff.delay $ Aff.Milliseconds 10.0 -- without this the first step is emitted before subscription takes effect
+    _ <- sequence $ map (H.liftEffect <<< HS.notify listener) steps
+    Aff.delay $ Aff.Milliseconds 100.0
+    pure
+      { howManyReadSoFar: howManyReadSoFar + (Array.length steps)
+      , done: Array.any isDoneStep steps
+      }
+
+isDoneStep :: Action -> Boolean
+isDoneStep (NewStep stepText) = String.contains (String.Pattern "DoneStep") stepText
+isDoneStep _ = false
+
+foreign import _getNewSteps :: Int -> Effect (Promise (Array String))
+
+getNewSteps :: Int -> Aff (Array Action)
+getNewSteps currLenghtRead = do
+  stepTexts <- Promise.toAffE (_getNewSteps currLenghtRead)
+  pure $ map NewStep stepTexts

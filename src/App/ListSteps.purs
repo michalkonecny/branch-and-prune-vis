@@ -1,5 +1,6 @@
 module App.ListSteps where
 
+import App.Steps
 import Prelude
 
 import App.Utils (actOnStateUntil)
@@ -7,7 +8,6 @@ import Control.Promise (Promise)
 import Control.Promise as Promise
 import Data.Array as Array
 import Data.Maybe (Maybe(..))
-import Data.String as String
 import Data.Traversable (sequence)
 import Effect (Effect)
 import Effect.Aff (Aff)
@@ -16,8 +16,6 @@ import Effect.Aff.Class (class MonadAff)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.Subscription as HS
-
-type Step = String -- TODO
 
 type State = { steps :: Array Step }
 
@@ -41,8 +39,18 @@ render state =
         (map renderStep state.steps)
     ]
   where
-  renderStep stepText =
-    HH.div_ [ HH.text stepText ]
+  renderStep step =
+    HH.div_ [ HH.text $ showStepEssence step <> " " <> showJust (getStepParent step) <> showNewProblems step ]
+
+showJust :: Maybe String -> String
+showJust (Just v) = v
+showJust Nothing = ""
+
+showNewProblems :: Step -> String
+showNewProblems step = 
+  case getStepProblems step of
+    [] -> ""
+    problems -> " -> " <> show (map (\p -> p.contentHash) problems)
 
 handleAction :: forall cs o m. (MonadAff m) => Action -> H.HalogenM State Action cs o m Unit
 handleAction = case _ of
@@ -72,7 +80,7 @@ stepsEmitter = do
       }
 
 isDoneStep :: Action -> Boolean
-isDoneStep (NewStep stepText) = String.contains (String.Pattern "DoneStep") stepText
+isDoneStep (NewStep DoneStep) = true
 isDoneStep _ = false
 
 foreign import _getNewSteps :: Int -> Effect (Promise (Array String))
@@ -80,4 +88,4 @@ foreign import _getNewSteps :: Int -> Effect (Promise (Array String))
 getNewSteps :: Int -> Aff (Array Action)
 getNewSteps currLenghtRead = do
   stepTexts <- Promise.toAffE (_getNewSteps currLenghtRead)
-  pure $ map NewStep stepTexts
+  pure $ map NewStep $ parseSteps stepTexts

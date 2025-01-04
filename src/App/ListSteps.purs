@@ -7,6 +7,8 @@ import App.Utils (actOnStateUntil)
 import Control.Promise (Promise)
 import Control.Promise as Promise
 import Data.Array as Array
+import Data.Map (Map)
+import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Traversable (sequence)
 import Effect (Effect)
@@ -15,16 +17,20 @@ import Effect.Aff as Aff
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
 import Halogen.HTML as HH
+import Halogen.HTML.Properties as HP
 import Halogen.Subscription as HS
 
-type State = { steps :: Array Step }
+type State = { steps :: Map ProblemHash Step, problem :: Maybe Problem, completion :: Maybe String }
+
+initialState :: _ -> State
+initialState _ = { steps: Map.empty, problem: Nothing, completion: Nothing }
 
 data Action = Initialize | NewStep Step
 
 component :: forall q i o m. (MonadAff m) => H.Component q i o m
 component =
   H.mkComponent
-    { initialState: \_ -> { steps: [] }
+    { initialState
     , render
     , eval: H.mkEval $ H.defaultEval
         { handleAction = handleAction
@@ -35,19 +41,35 @@ component =
 render :: forall cs m. State -> H.ComponentHTML Action cs m
 render state =
   HH.div_
-    [ HH.p_
-        (map renderStep state.steps)
-    ]
+    [ renderStepsAsTree state.problem state.steps ]
+
+renderStepsAsTree :: Maybe Problem -> Map ProblemHash Step -> _
+renderStepsAsTree Nothing _ = HH.text "No steps"
+renderStepsAsTree (Just problem) steps =
+  renderProblem problem.contentHash
   where
-  renderStep step =
-    HH.div_ [ HH.text $ showStepEssence step <> " " <> showJust (getStepParent step) <> showNewProblems step ]
+  renderProblem problemHash =
+    HH.table
+      [ HP.style "border: 1px solid;" ]
+      [ HH.tbody_ $
+          [ HH.tr_ [ HH.td [ HP.colSpan 2 ] [ HH.text $ showStepEssence step ] ] ]
+            <>
+              (map renderSubProblem $ getStepProblems step)
+      ]
+    where
+    step = case Map.lookup problemHash steps of
+      Just step_ -> step_
+      _ -> AbortStep { detail: "No step with hash " <> problemHash }
+
+    renderSubProblem p =
+      HH.tr [HP.style "vertical-align: top;"] [ HH.td_ [ HH.text "-" ], HH.td_ [ renderProblem p.contentHash ] ]
 
 showJust :: Maybe String -> String
 showJust (Just v) = v
 showJust Nothing = ""
 
 showNewProblems :: Step -> String
-showNewProblems step = 
+showNewProblems step =
   case getStepProblems step of
     [] -> ""
     problems -> " -> " <> show (map (\p -> p.contentHash) problems)
@@ -57,7 +79,21 @@ handleAction = case _ of
   Initialize -> do
     _ <- H.subscribe =<< stepsEmitter
     pure unit
-  NewStep stepText -> H.modify_ \st -> st { steps = st.steps <> [ stepText ] }
+  NewStep step -> H.modify_ (addStep step)
+
+addStep :: Step -> State -> State
+addStep step st = { steps: steps', problem: problem', completion: completion' }
+  where
+  steps' = case getStepParent step of
+    Nothing -> st.steps
+    Just parent -> Map.insert parent step st.steps
+  problem' = case step of
+    InitStep { problem } -> Just problem
+    _ -> st.problem
+  completion' = case step of
+    DoneStep -> Just "done"
+    AbortStep { detail } -> Just detail
+    _ -> st.completion
 
 stepsEmitter :: forall m. MonadAff m => m (HS.Emitter Action)
 stepsEmitter = do

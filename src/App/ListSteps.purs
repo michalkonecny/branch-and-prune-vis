@@ -15,6 +15,7 @@ import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Aff as Aff
 import Effect.Aff.Class (class MonadAff)
+import Halogen (ClassName(..))
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
@@ -46,7 +47,10 @@ render state =
 renderStepsAsTree :: Maybe Problem -> Map ProblemHash Step -> _
 renderStepsAsTree Nothing _ = HH.text "No steps"
 renderStepsAsTree (Just problem) steps =
-  renderProblem problem.contentHash
+  HH.div [ HP.class_ (ClassName "popup"), HP.style "translate: 100px 200px;" ]
+    [ renderProblem problem.contentHash
+    , HH.span [ HP.class_ (ClassName "popuptext show") ] [ HH.text "Popup" ]
+    ]
   where
   renderProblem problemHash =
     HH.table
@@ -62,7 +66,7 @@ renderStepsAsTree (Just problem) steps =
       _ -> AbortStep { detail: "No step with hash " <> problemHash }
 
     renderSubProblem p =
-      HH.tr [HP.style "vertical-align: top;"] [ HH.td_ [ HH.text "-" ], HH.td_ [ renderProblem p.contentHash ] ]
+      HH.tr [ HP.style "vertical-align: top;" ] [ HH.td_ [ HH.text "-" ], HH.td_ [ renderProblem p.contentHash ] ]
 
 showJust :: Maybe String -> String
 showJust (Just v) = v

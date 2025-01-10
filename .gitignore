@@ -14,3 +14,4 @@ generated-docs/
 package-lock.json
 .parcel-cache
 dist/
+*.code-workspace

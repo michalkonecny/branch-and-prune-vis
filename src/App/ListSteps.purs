@@ -44,13 +44,25 @@ render state =
   HH.div_
     [ renderStepsAsTree state.problem state.steps ]
 
+renderWithPopup
+  :: forall cs m
+   . { popupContent :: Array (H.ComponentHTML Action cs m)
+     , popupTargetElement :: H.ComponentHTML Action cs m
+     }
+  -> H.ComponentHTML Action cs m
+renderWithPopup { popupContent, popupTargetElement } =
+  HH.div [ HP.class_ (ClassName "popup"), HP.style "translate: 0px 100px;" ]
+    [ popupTargetElement
+    , HH.span [ HP.class_ (ClassName "popuptext show") ] popupContent
+    ]
+
 renderStepsAsTree :: Maybe Problem -> Map ProblemHash Step -> _
 renderStepsAsTree Nothing _ = HH.text "No steps"
 renderStepsAsTree (Just problem) steps =
-  HH.div [ HP.class_ (ClassName "popup"), HP.style "translate: 100px 200px;" ]
-    [ renderProblem problem.contentHash
-    , HH.span [ HP.class_ (ClassName "popuptext show") ] [ HH.text "Popup" ]
-    ]
+  renderWithPopup
+    { popupContent: [ HH.text "line 1", HH.br_, HH.text "line 2 longer" ]
+    , popupTargetElement: renderProblem problem.contentHash
+    }
   where
   renderProblem problemHash =
     HH.table

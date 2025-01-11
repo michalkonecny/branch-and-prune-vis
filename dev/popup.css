@@ -18,9 +18,9 @@
   padding: 5px 0;
   position: absolute;
   z-index: 1;
-  bottom: 100%;
-  margin-bottom: 5px;
-  left: 50%;
+  top: 100%;
+  margin-top: 5px;
+  left: 100%;
   margin-left: -200px;
 }
 
@@ -28,12 +28,12 @@
 .popup .popupcontents::after {
   content: "";
   position: absolute;
-  top: 100%;
-  left: 50%;
+  bottom: 100%;
+  left: 25%;
   margin-left: -5px;
   border-width: 5px;
   border-style: solid;
-  border-color: #555 transparent transparent transparent;
+  border-color: transparent transparent #555 transparent;
 }
 
 /* Toggle this class when clicking on the popup container (hide and show the popup) */

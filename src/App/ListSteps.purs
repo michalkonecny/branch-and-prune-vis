@@ -1,7 +1,6 @@
 module App.ListSteps where
 
 import App.Steps
-import Prelude
 
 import App.Utils (actOnStateUntil)
 import Control.Promise (Promise)
@@ -21,23 +20,30 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.Subscription as HS
+import Prelude (Unit, bind, discard, map, pure, show, unit, ($), (+), (<<<), (<>), (=<<), (==))
+import Web.Event.Event (Event)
+import Web.Event.Event (stopPropagation)
+import Web.Event.Event as Event
+import Web.UIEvent.MouseEvent (toEvent)
 
 type State =
   { steps :: Map ProblemHash Step
-  , problem :: Maybe Problem
+  , problems :: Map ProblemHash Problem
+  , initProblem :: Maybe Problem
   , completion :: Maybe String
   , focus :: Maybe ProblemHash
   }
 
-initialState :: _ -> State
+initialState :: forall input. input -> State
 initialState _ =
   { steps: Map.empty
-  , problem: Nothing
+  , problems: Map.empty
+  , initProblem: Nothing
   , completion: Nothing
   , focus: Nothing
   }
 
-data Action = Initialize | NewStep Step | Focus (Maybe ProblemHash)
+data Action = Initialize | NewStep Step | Focus Event (Maybe ProblemHash)
 
 component :: forall q i o m. (MonadAff m) => H.Component q i o m
 component =
@@ -53,8 +59,8 @@ component =
 render :: forall cs m. State -> H.ComponentHTML Action cs m
 render state =
   HH.div
-    [ HP.style "translate: 0px 100px;" ]
-    [ renderStepsAsTree state.problem state.steps state.focus ]
+    [ HP.style "translate: 200px 200px;" ]
+    [ renderStepsAsTree state ]
 
 renderWithPopup
   :: forall cs m
@@ -70,35 +76,42 @@ renderWithPopup { popupContents, popupTargetElement } =
     ]
   where
   closeIcon = HH.div
-    [ HE.onClick (\_ -> Focus Nothing), HP.class_ (ClassName "popupcloseicon") ]
+    [ HE.onClick (\e -> Focus (toEvent e) Nothing), HP.class_ (ClassName "popupcloseicon") ]
     [ HH.text "ⓧ" ]
 
-renderStepsAsTree :: Maybe Problem -> Map ProblemHash Step -> Maybe ProblemHash -> _
-renderStepsAsTree Nothing _ _ = HH.text "No steps"
-renderStepsAsTree (Just problem) steps focus =
-  case focus of
-    Nothing -> renderProblem problem.contentHash
-    Just _ ->
-      renderWithPopup
-        { popupContents: [ HH.text "line 1", HH.br_, HH.text "line 2 longer" ]
-        , popupTargetElement: renderProblem problem.contentHash
-        }
+renderStepsAsTree :: forall cs m. State -> H.ComponentHTML Action cs m
+renderStepsAsTree { initProblem: Nothing } = HH.text "No steps"
+renderStepsAsTree st@{ initProblem: Just initProblem } =
+  renderProblem initProblem.contentHash
   where
   renderProblem problemHash =
-    HH.table
-      [ HP.style "border: 1px solid;", HE.onClick (\_ -> Focus (Just "dummy hash")) ]
-      [ HH.tbody_ $
-          [ HH.tr_ [ HH.td [ HP.colSpan 2 ] [ HH.text $ showStepEssence step ] ] ]
-            <>
-              (map renderSubProblem $ getStepProblems step)
-      ]
+    if st.focus == Just problemHash then
+      renderWithPopup
+        { popupContents: [ HH.text $ problem.constraint ]
+        , popupTargetElement: stepTable
+        }
+    else stepTable
     where
-    step = case Map.lookup problemHash steps of
+    stepTable =
+      HH.table
+        [ HP.style "border: 1px solid;", HE.onClick (\e -> Focus (toEvent e) (Just problemHash)) ]
+        [ HH.tbody_ $
+            [ HH.tr_ [ HH.td [ HP.colSpan 2 ] [ HH.text $ showStepEssence step ] ] ]
+              <>
+                (map renderSubProblem $ getStepProblems step)
+        ]
+
+    step = case Map.lookup problemHash st.steps of
       Just step_ -> step_
       _ -> AbortStep { detail: "No step with hash " <> problemHash }
 
+    problem = case Map.lookup problemHash st.problems of
+      Just problem_ -> problem_
+      _ -> dummyProblem
+
     renderSubProblem p =
-      HH.tr [ HP.style "vertical-align: top;" ] [ HH.td_ [ HH.text "-" ], HH.td_ [ renderProblem p.contentHash ] ]
+      HH.tr [ HP.style "vertical-align: top;" ]
+        [ HH.td_ [ HH.text "-" ], HH.td_ [ renderProblem p.contentHash ] ]
 
 showJust :: Maybe String -> String
 showJust (Just v) = v
@@ -116,18 +129,28 @@ handleAction = case _ of
     _ <- H.subscribe =<< stepsEmitter
     pure unit
   NewStep step -> H.modify_ (addStep step)
-  Focus focus' -> H.modify_ $ \st -> st { focus = focus' }
+  Focus e focus' -> do
+    H.liftEffect $ Event.stopPropagation e
+    H.modify_ $ \st -> st { focus = focus' }
 
 addStep :: Step -> State -> State
-addStep step st = st { steps = steps', problem = problem', completion = completion' }
+addStep step st =
+  st
+    { steps = steps
+    , problems = problems
+    , initProblem = initProblem
+    , completion = completion
+    }
   where
-  steps' = case getStepParent step of
+  steps = case getStepParent step of
     Nothing -> st.steps
     Just parent -> Map.insert parent step st.steps
-  problem' = case step of
+  problems = Array.foldl addProblem st.problems (getStepProblems step)
+  addProblem probs problem = Map.insert problem.contentHash problem probs
+  initProblem = case step of
     InitStep { problem } -> Just problem
-    _ -> st.problem
-  completion' = case step of
+    _ -> st.initProblem
+  completion = case step of
     DoneStep -> Just "done"
     AbortStep { detail } -> Just detail
     _ -> st.completion

@@ -14,6 +14,7 @@ module App.Steps
   , getStepsProblems
   , parseSteps
   , showStepEssence
+  , dummyProblem
   ) where
 
 import Prelude

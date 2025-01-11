@@ -92,17 +92,7 @@ renderStepsAsBoxes st@{ initProblem: Just initProblem } =
         , SA.height height
         , SA.viewBox initXrange.l initYrange.l initXrange.u initYrange.u
         ]
-        [ SE.rect
-            [ SA.x initXrange.l
-            , SA.y initYrange.l
-            , SA.width (initXrange.u - initXrange.l)
-            , SA.height (initYrange.u - initYrange.l)
-            , SA.stroke $ Named "black"
-            , SA.strokeWidth (1.0 * pixel)
-            , SA.fill $ Named "green"
-            , SA.fillOpacity 0.4
-            ]
-        ]
+        (rectsForProblemHash initProblem.contentHash)
     ]
   where
   initVarDomains = initProblem.scope.varDomains
@@ -113,6 +103,45 @@ renderStepsAsBoxes st@{ initProblem: Just initProblem } =
   width = if initYspan <= initXspan then 300.0 else 300.0 * (initXspan / initYspan)
   height = if initXspan <= initYspan then 300.0 else 300.0 * (initYspan / initXspan)
   pixel = if initXspan <= initYspan then initYspan / 300.0 else initXspan / 300.0
+
+  rectsForProblemHash problemHash =
+    [ SE.rect
+        [ SA.x xrange.l
+        , SA.y yrange.l
+        , SA.width (xrange.u - xrange.l)
+        , SA.height (yrange.u - yrange.l)
+        , SA.stroke $ Named "black"
+        , SA.strokeWidth (1.0 * pixel)
+        , SA.fill color
+        , SA.fillOpacity 0.2
+        ]
+    ]
+      <> (Array.concat (map rectsForSubproblem (getStepProblems step)))
+    where
+    step = case Map.lookup problemHash st.steps of
+      Just step_ -> step_
+      _ -> AbortStep { detail: "No step with hash " <> problemHash }
+    
+    color = case step of 
+      PruneStep { prunePaving: { inner: Boxes innerBoxes , outer: Boxes outerBoxes, undecided: [] } } -> 
+        if Array.null outerBoxes 
+          then Named "green"
+          else if Array.null innerBoxes
+            then Named "red"
+            else Named "white"
+      _ -> Named "white"
+
+    problem = case Map.lookup problemHash st.problems of
+      Just problem_ -> problem_
+      _ -> dummyProblem
+
+
+    rectsForSubproblem subProblem = rectsForProblemHash subProblem.contentHash
+
+    varDomains = problem.scope.varDomains
+
+    xrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup st.plotX varDomains)
+    yrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup st.plotY varDomains)
 
 renderWithPopup
   :: forall cs m
@@ -141,7 +170,7 @@ renderStepsAsTree st@{ initProblem: Just initProblem } =
       renderWithPopup
         { popupContents:
             boxDescription <>
-            [ HH.text $ problem.constraint ]
+              [ HH.text $ problem.constraint ]
         , popupTargetElement: stepTable
         }
     else stepTable
@@ -169,11 +198,11 @@ renderStepsAsTree st@{ initProblem: Just initProblem } =
 
     (varRanges :: Array _) = Map.toUnfoldable $ problem.scope.varDomains
     boxDescription = Array.concat $ map describeVar varRanges
-    describeVar :: (Tuple Var Interval) -> Array _
-    describeVar (Tuple var {l, u}) = [HH.text descr, HH.br_]
-      where
-        descr = var <> " ∈ [ " <> (show l) <> ", " <> show u <> " ]"
 
+    describeVar :: (Tuple Var Interval) -> Array _
+    describeVar (Tuple var { l, u }) = [ HH.text descr, HH.br_ ]
+      where
+      descr = var <> " ∈ [ " <> (show l) <> ", " <> show u <> " ]"
 
 showJust :: Maybe String -> String
 showJust (Just v) = v

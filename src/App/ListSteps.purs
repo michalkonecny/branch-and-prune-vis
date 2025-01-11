@@ -8,8 +8,9 @@ import Control.Promise as Promise
 import Data.Array as Array
 import Data.Map (Map)
 import Data.Map as Map
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe)
 import Data.Traversable (sequence)
+import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Aff as Aff
@@ -18,11 +19,14 @@ import Halogen (ClassName(..))
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
+import Halogen.HTML.Properties (height)
 import Halogen.HTML.Properties as HP
 import Halogen.Subscription as HS
-import Prelude (Unit, bind, discard, map, pure, show, unit, ($), (+), (<<<), (<>), (=<<), (==))
+import Halogen.Svg.Attributes (Color(..))
+import Halogen.Svg.Attributes as SA
+import Halogen.Svg.Elements as SE
+import Prelude (Unit, bind, discard, map, pure, show, unit, ($), (*), (+), (-), (/), (<<<), (<=), (<>), (=<<), (==))
 import Web.Event.Event (Event)
-import Web.Event.Event (stopPropagation)
 import Web.Event.Event as Event
 import Web.UIEvent.MouseEvent (toEvent)
 
@@ -32,6 +36,8 @@ type State =
   , initProblem :: Maybe Problem
   , completion :: Maybe String
   , focus :: Maybe ProblemHash
+  , plotX :: Var
+  , plotY :: Var
   }
 
 initialState :: forall input. input -> State
@@ -41,6 +47,8 @@ initialState _ =
   , initProblem: Nothing
   , completion: Nothing
   , focus: Nothing
+  , plotX: "x"
+  , plotY: "y"
   }
 
 data Action = Initialize | NewStep Step | Focus Event (Maybe ProblemHash)
@@ -58,9 +66,53 @@ component =
 
 render :: forall cs m. State -> H.ComponentHTML Action cs m
 render state =
-  HH.div
-    [ HP.style "translate: 200px 200px;" ]
-    [ renderStepsAsTree state ]
+  HH.table
+    [ HP.style "translate: 50px 20px;" ]
+    [ HH.tbody_
+        [ HH.tr_
+            [ HH.td_
+                [ HH.div_
+                    [ renderStepsAsTree state ]
+                -- []
+                ]
+            , HH.td_
+                [ HH.div_
+                    [ renderStepsAsBoxes state ]
+                ]
+            ]
+        ]
+    ]
+
+renderStepsAsBoxes :: forall cs m. State -> H.ComponentHTML Action cs m
+renderStepsAsBoxes { initProblem: Nothing } = HH.text "No steps"
+renderStepsAsBoxes st@{ initProblem: Just initProblem } =
+  HH.div_
+    [ SE.svg
+        [ SA.width width
+        , SA.height height
+        , SA.viewBox initXrange.l initYrange.l initXrange.u initYrange.u
+        ]
+        [ SE.rect
+            [ SA.x initXrange.l
+            , SA.y initYrange.l
+            , SA.width (initXrange.u - initXrange.l)
+            , SA.height (initYrange.u - initYrange.l)
+            , SA.stroke $ Named "black"
+            , SA.strokeWidth (1.0 * pixel)
+            , SA.fill $ Named "green"
+            , SA.fillOpacity 0.4
+            ]
+        ]
+    ]
+  where
+  initVarDomains = initProblem.scope.varDomains
+  initXrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup st.plotX initVarDomains)
+  initYrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup st.plotY initVarDomains)
+  initXspan = initXrange.u - initXrange.l
+  initYspan = initYrange.u - initYrange.l
+  width = if initYspan <= initXspan then 300.0 else 300.0 * (initXspan / initYspan)
+  height = if initXspan <= initYspan then 300.0 else 300.0 * (initYspan / initXspan)
+  pixel = if initXspan <= initYspan then initYspan / 300.0 else initXspan / 300.0
 
 renderWithPopup
   :: forall cs m
@@ -87,7 +139,9 @@ renderStepsAsTree st@{ initProblem: Just initProblem } =
   renderProblem problemHash =
     if st.focus == Just problemHash then
       renderWithPopup
-        { popupContents: [ HH.text $ problem.constraint ]
+        { popupContents:
+            boxDescription <>
+            [ HH.text $ problem.constraint ]
         , popupTargetElement: stepTable
         }
     else stepTable
@@ -112,6 +166,14 @@ renderStepsAsTree st@{ initProblem: Just initProblem } =
     renderSubProblem p =
       HH.tr [ HP.style "vertical-align: top;" ]
         [ HH.td_ [ HH.text "-" ], HH.td_ [ renderProblem p.contentHash ] ]
+
+    (varRanges :: Array _) = Map.toUnfoldable $ problem.scope.varDomains
+    boxDescription = Array.concat $ map describeVar varRanges
+    describeVar :: (Tuple Var Interval) -> Array _
+    describeVar (Tuple var {l, u}) = [HH.text descr, HH.br_]
+      where
+        descr = var <> " ∈ [ " <> (show l) <> ", " <> show u <> " ]"
+
 
 showJust :: Maybe String -> String
 showJust (Just v) = v

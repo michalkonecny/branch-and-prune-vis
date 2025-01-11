@@ -7,6 +7,7 @@ package:
     - effect
     - halogen
     - halogen-subscriptions
+    - halogen-svg-elems
     - prelude
     - strings
     - tailrec

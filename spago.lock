@@ -11,6 +11,7 @@
             "effect",
             "halogen",
             "halogen-subscriptions",
+            "halogen-svg-elems",
             "prelude",
             "strings",
             "tailrec",
@@ -46,6 +47,7 @@
             "gen",
             "halogen",
             "halogen-subscriptions",
+            "halogen-svg-elems",
             "halogen-vdom",
             "identity",
             "integers",
@@ -1038,6 +1040,14 @@
         "refs",
         "safe-coerce",
         "unsafe-reference"
+      ]
+    },
+    "halogen-svg-elems": {
+      "type": "registry",
+      "version": "8.0.0",
+      "integrity": "sha256-NtZ30NoNyadVEsRcdY0zvm2yyahxUTgpioDNVz5gEIA=",
+      "dependencies": [
+        "halogen"
       ]
     },
     "halogen-vdom": {

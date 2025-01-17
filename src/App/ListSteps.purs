@@ -71,17 +71,21 @@ render state =
     [ HH.tbody_
         [ HH.tr_
             [ HH.td_
-                [ HH.div_
+                [ HH.div
+                    [ HP.style "overflow:scroll; width: 400px;height:600px;" ]
                     [ renderStepsAsTree state ]
-                -- []
                 ]
             , HH.td_
-                [ HH.div_
+                [ HH.div
+                    [ HP.style "margin-left: 20px;" ]
                     [ renderStepsAsBoxes state ]
                 ]
             ]
         ]
     ]
+
+plotMaxSize :: Number
+plotMaxSize = 500.0
 
 renderStepsAsBoxes :: forall cs m. State -> H.ComponentHTML Action cs m
 renderStepsAsBoxes { initProblem: Nothing } = HH.text "No steps"
@@ -100,9 +104,9 @@ renderStepsAsBoxes st@{ initProblem: Just initProblem } =
   initYrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup st.plotY initVarDomains)
   initXspan = initXrange.u - initXrange.l
   initYspan = initYrange.u - initYrange.l
-  width = if initYspan <= initXspan then 300.0 else 300.0 * (initXspan / initYspan)
-  height = if initXspan <= initYspan then 300.0 else 300.0 * (initYspan / initXspan)
-  pixel = if initXspan <= initYspan then initYspan / 300.0 else initXspan / 300.0
+  width = if initYspan <= initXspan then plotMaxSize else plotMaxSize * (initXspan / initYspan)
+  height = if initXspan <= initYspan then plotMaxSize else plotMaxSize * (initYspan / initXspan)
+  pixel = if initXspan <= initYspan then initYspan / plotMaxSize else initXspan / plotMaxSize
 
   rectsForProblemHash problemHash =
     [ SE.rect

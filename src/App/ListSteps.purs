@@ -19,13 +19,12 @@ import Halogen (ClassName(..))
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Halogen.HTML.Properties (height)
 import Halogen.HTML.Properties as HP
 import Halogen.Subscription as HS
 import Halogen.Svg.Attributes (Color(..))
 import Halogen.Svg.Attributes as SA
 import Halogen.Svg.Elements as SE
-import Prelude (Unit, bind, discard, map, pure, show, unit, ($), (*), (+), (-), (/), (<<<), (<=), (<>), (=<<), (==))
+import Prelude (Unit, bind, discard, map, otherwise, pure, show, unit, ($), (*), (+), (-), (/), (<<<), (<=), (<>), (=<<), (==))
 import Web.Event.Event (Event)
 import Web.Event.Event as Event
 import Web.UIEvent.MouseEvent (toEvent)
@@ -94,14 +93,15 @@ renderStepsAsBoxes st@{ initProblem: Just initProblem } =
     [ SE.svg
         [ SA.width width
         , SA.height height
-        , SA.viewBox initXrange.l initYrange.l initXrange.u initYrange.u
+        , SA.viewBox (initXrange.l - 2.0*pixel) (initYrange.l - 2.0*pixel) (initXrange.u + 4.0*pixel) (initYrange.u + 2.0*pixel)
         ]
-        (rectsForProblemHash initProblem.contentHash)
+        (pavingElements <> overlayElements)
     ]
   where
   initVarDomains = initProblem.scope.varDomains
   initXrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup st.plotX initVarDomains)
   initYrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup st.plotY initVarDomains)
+  
   initXspan = initXrange.u - initXrange.l
   initYspan = initYrange.u - initYrange.l
   width = if initYspan <= initXspan then plotMaxSize else plotMaxSize * (initXspan / initYspan)
@@ -109,36 +109,50 @@ renderStepsAsBoxes st@{ initProblem: Just initProblem } =
   pixel = if initXspan <= initYspan then initYspan / plotMaxSize else initXspan / plotMaxSize
 
   rectsForProblemHash problemHash =
-    [ SE.rect
-        [ SA.x xrange.l
-        , SA.y yrange.l
-        , SA.width (xrange.u - xrange.l)
-        , SA.height (yrange.u - yrange.l)
-        , SA.stroke $ Named "black"
-        , SA.strokeWidth (1.0 * pixel)
-        , SA.fill color
-        , SA.fillOpacity 0.2
-        ]
-    ]
-      <> (Array.concat (map rectsForSubproblem (getStepProblems step)))
+    { pavingElements: [ mainRect ] <> subBoxPaving,
+      overlayElements:  subBoxOverlay <> (if hasFocus then [ outlineRect ] else [])}
     where
+    subBoxPaving = Array.concat $ map (\x -> x.pavingElements) subBoxPavingsAndOverlays
+    subBoxOverlay = Array.concat $ map (\x -> x.overlayElements) subBoxPavingsAndOverlays
+    subBoxPavingsAndOverlays = map rectsForSubproblem (getStepProblems step)
+    hasFocus = st.focus == Just problemHash
+    boxRectAttributes = 
+      [ SA.x xrange.l
+      , SA.y yrange.l
+      , SA.width (xrange.u - xrange.l)
+      , SA.height (yrange.u - yrange.l)
+      ]
+
+    mainRect = SE.rect $
+      boxRectAttributes <>
+      [ SA.stroke $ Named "black"
+      , SA.strokeWidth (1.0 * pixel)
+      , SA.fill color
+      , SA.fillOpacity 0.2
+      ]
+
+    outlineRect = SE.rect $
+      boxRectAttributes <>
+      [ SA.stroke $ Named "red"
+      , SA.strokeWidth (2.0 * pixel)
+      , SA.fill color
+      , SA.fillOpacity 0.0
+      ]
+
     step = case Map.lookup problemHash st.steps of
       Just step_ -> step_
       _ -> AbortStep { detail: "No step with hash " <> problemHash }
-    
-    color = case step of 
-      PruneStep { prunePaving: { inner: Boxes innerBoxes , outer: Boxes outerBoxes, undecided: [] } } -> 
-        if Array.null outerBoxes 
-          then Named "green"
-          else if Array.null innerBoxes
-            then Named "red"
-            else Named "white"
+
+    color = case step of
+      PruneStep { prunePaving: { inner: Boxes innerBoxes, outer: Boxes outerBoxes, undecided: [] } } ->
+        if Array.null outerBoxes then Named "green"
+        else if Array.null innerBoxes then Named "red"
+        else Named "white"
       _ -> Named "white"
 
     problem = case Map.lookup problemHash st.problems of
       Just problem_ -> problem_
       _ -> dummyProblem
-
 
     rectsForSubproblem subProblem = rectsForProblemHash subProblem.contentHash
 
@@ -146,6 +160,8 @@ renderStepsAsBoxes st@{ initProblem: Just initProblem } =
 
     xrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup st.plotX varDomains)
     yrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup st.plotY varDomains)
+
+  { pavingElements, overlayElements } = rectsForProblemHash initProblem.contentHash
 
 renderWithPopup
   :: forall cs m
@@ -170,7 +186,7 @@ renderStepsAsTree st@{ initProblem: Just initProblem } =
   renderProblem initProblem.contentHash
   where
   renderProblem problemHash =
-    if st.focus == Just problemHash then
+    if hasFocus then
       renderWithPopup
         { popupContents:
             boxDescription <>
@@ -179,14 +195,19 @@ renderStepsAsTree st@{ initProblem: Just initProblem } =
         }
     else stepTable
     where
+    hasFocus = st.focus == Just problemHash
     stepTable =
       HH.table
-        [ HP.style "border: 1px solid;", HE.onClick (\e -> Focus (toEvent e) (Just problemHash)) ]
+        [ HP.style tableStyle, HE.onClick (\e -> Focus (toEvent e) (Just problemHash)) ]
         [ HH.tbody_ $
             [ HH.tr_ [ HH.td [ HP.colSpan 2 ] [ HH.text $ showStepEssence step ] ] ]
               <>
                 (map renderSubProblem $ getStepProblems step)
         ]
+
+    tableStyle
+      | hasFocus = "border: 2px solid;"
+      | otherwise = "border: 1px solid;"
 
     step = case Map.lookup problemHash st.steps of
       Just step_ -> step_

@@ -1,6 +1,36 @@
-module App.ListSteps where
+module App.ListSteps
+  ( Action(..)
+  , State
+  , _getNewSteps
+  , addStep
+  , component
+  , getNewSteps
+  , handleAction
+  , initialState
+  , isDoneStep
+  , plotSizeX
+  , render
+  , renderStepsAsBoxes
+  , renderStepsAsTree
+  , renderWithPopup
+  , showJust
+  , showNewProblems
+  , stepsEmitter
+  ) where
 
 import App.Steps
+  ( Boxes(..)
+  , Interval
+  , Problem
+  , ProblemHash
+  , Step(..)
+  , Var
+  , dummyProblem
+  , getStepParent
+  , getStepProblems
+  , parseSteps
+  , showStepEssence
+  )
 
 import App.Utils (actOnStateUntil)
 import Control.Promise (Promise)
@@ -24,7 +54,7 @@ import Halogen.Subscription as HS
 import Halogen.Svg.Attributes (Color(..))
 import Halogen.Svg.Attributes as SA
 import Halogen.Svg.Elements as SE
-import Prelude (Unit, bind, discard, map, otherwise, pure, show, unit, ($), (*), (+), (-), (/), (<<<), (<=), (<>), (=<<), (==))
+import Prelude
 import Web.Event.Event (Event)
 import Web.Event.Event as Event
 import Web.UIEvent.MouseEvent (toEvent)
@@ -83,17 +113,20 @@ render state =
         ]
     ]
 
-plotMaxSize :: Number
-plotMaxSize = 500.0
+plotSizeX :: Number
+plotSizeX = 400.0
+
+plotSizeY :: Number
+plotSizeY = 400.0
 
 renderStepsAsBoxes :: forall cs m. State -> H.ComponentHTML Action cs m
 renderStepsAsBoxes { initProblem: Nothing } = HH.text "No steps"
 renderStepsAsBoxes st@{ initProblem: Just initProblem } =
   HH.div_
     [ SE.svg
-        [ SA.width width
-        , SA.height height
-        , SA.viewBox (initXrange.l - 2.0*pixel) (initYrange.l - 2.0*pixel) (initXrange.u + 4.0*pixel) (initYrange.u + 2.0*pixel)
+        [ SA.width (plotSizeX + 5.0)
+        , SA.height (plotSizeY + 5.0)
+        , SA.viewBox (-2.0) (-2.0) (plotSizeX + 3.0) (plotSizeY + 3.0)
         ]
         (pavingElements <> overlayElements)
     ]
@@ -101,43 +134,45 @@ renderStepsAsBoxes st@{ initProblem: Just initProblem } =
   initVarDomains = initProblem.scope.varDomains
   initXrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup st.plotX initVarDomains)
   initYrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup st.plotY initVarDomains)
-  
   initXspan = initXrange.u - initXrange.l
   initYspan = initYrange.u - initYrange.l
-  width = if initYspan <= initXspan then plotMaxSize else plotMaxSize * (initXspan / initYspan)
-  height = if initXspan <= initYspan then plotMaxSize else plotMaxSize * (initYspan / initXspan)
-  pixel = if initXspan <= initYspan then initYspan / plotMaxSize else initXspan / plotMaxSize
+
+  toScreenX x = (x - initXrange.l) * plotSizeX / initXspan
+  toScreenY y = (y - initYrange.l) * plotSizeY / initYspan
+  toScreenRangeX { l, u } = { l: toScreenX l, u: toScreenX u }
+  toScreenRangeY { l, u } = { l: toScreenY l, u: toScreenY u }
 
   rectsForProblemHash problemHash =
-    { pavingElements: [ mainRect ] <> subBoxPaving,
-      overlayElements:  subBoxOverlay <> (if hasFocus then [ outlineRect ] else [])}
+    { pavingElements: [ mainRect ] <> subBoxPaving
+    , overlayElements: subBoxOverlay <> (if hasFocus then [ outlineRect ] else [])
+    }
     where
     subBoxPaving = Array.concat $ map (\x -> x.pavingElements) subBoxPavingsAndOverlays
     subBoxOverlay = Array.concat $ map (\x -> x.overlayElements) subBoxPavingsAndOverlays
     subBoxPavingsAndOverlays = map rectsForSubproblem (getStepProblems step)
     hasFocus = st.focus == Just problemHash
-    boxRectAttributes = 
-      [ SA.x xrange.l
-      , SA.y yrange.l
-      , SA.width (xrange.u - xrange.l)
-      , SA.height (yrange.u - yrange.l)
+    boxRectAttributes =
+      [ SA.x xScreenRange.l
+      , SA.y yScreenRange.l
+      , SA.width (xScreenRange.u - xScreenRange.l)
+      , SA.height (yScreenRange.u - yScreenRange.l)
       ]
 
     mainRect = SE.rect $
       boxRectAttributes <>
-      [ SA.stroke $ Named "black"
-      , SA.strokeWidth (1.0 * pixel)
-      , SA.fill color
-      , SA.fillOpacity 0.2
-      ]
+        [ SA.stroke $ Named "black"
+        , SA.strokeWidth 1.0
+        , SA.fill color
+        , SA.fillOpacity 0.2
+        ]
 
     outlineRect = SE.rect $
       boxRectAttributes <>
-      [ SA.stroke $ Named "red"
-      , SA.strokeWidth (2.0 * pixel)
-      , SA.fill color
-      , SA.fillOpacity 0.0
-      ]
+        [ SA.stroke $ Named "red"
+        , SA.strokeWidth 2.0
+        , SA.fill color
+        , SA.fillOpacity 0.0
+        ]
 
     step = case Map.lookup problemHash st.steps of
       Just step_ -> step_
@@ -160,6 +195,8 @@ renderStepsAsBoxes st@{ initProblem: Just initProblem } =
 
     xrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup st.plotX varDomains)
     yrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup st.plotY varDomains)
+    xScreenRange = toScreenRangeX xrange
+    yScreenRange = toScreenRangeY yrange
 
   { pavingElements, overlayElements } = rectsForProblemHash initProblem.contentHash
 

@@ -87,7 +87,7 @@ render state =
     [ HH.tbody_
         [ HH.tr_
             [ HH.td
-                [ HP.colSpan 2 ]
+                [ HP.rowSpan 2 ] -- the tree spans 2 rows, next to the plot and the problem details
                 [ HH.div
                     [ HP.style "overflow:scroll; width: 400px;height:600px;" ]
                     [ renderStepsAsTree state ]
@@ -101,8 +101,8 @@ render state =
         , HH.tr_
             [ HH.td_
                 [ HH.div
-                    [ HP.style "margin-left: 20px;" ]
-                    [ ] -- renderProblem state ]
+                    [ HP.style "margin-left: 20px; overflow:scroll; width:450px;height:170px;" ]
+                    (renderFocusedProblem state)
                 ]
             ]
         ]
@@ -195,21 +195,34 @@ renderStepsAsBoxes st@{ initProblem: Just initProblem } =
 
   { pavingElements, overlayElements } = rectsForProblemHash initProblem.contentHash
 
+renderFocusedProblem :: forall cs m. State -> Array (H.ComponentHTML Action cs m)
+renderFocusedProblem st@{ focus } =
+  case focus of 
+    Just problemHash -> problemDescription problemHash
+    _ -> []
+  where
+  problemDescription problemHash =
+    boxDescription <> [ HH.text $ problem.constraint ]
+    where
+    problem = case Map.lookup problemHash st.problems of
+      Just problem_ -> problem_
+      _ -> dummyProblem
+
+    (varRanges :: Array _) = Map.toUnfoldable $ problem.scope.varDomains
+    boxDescription = Array.concat $ map describeVar varRanges
+
+    describeVar :: (Tuple Var Interval) -> Array _
+    describeVar (Tuple var { l, u }) = [ HH.text descr, HH.br_ ]
+      where
+      descr = var <> " ∈ [ " <> (show l) <> ", " <> show u <> " ]"
+
 renderStepsAsTree :: forall cs m. State -> H.ComponentHTML Action cs m
 renderStepsAsTree { initProblem: Nothing } = HH.text "No steps"
 renderStepsAsTree st@{ initProblem: Just initProblem } =
-  renderProblem initProblem.contentHash
+  renderProblemNode initProblem.contentHash
   where
-  renderProblem problemHash =
-    if hasFocus then
-      renderWithPopup
-        { popupContents:
-            boxDescription <>
-              [ HH.text $ problem.constraint ]
-        , popupTargetElement: stepTable
-        , onClose: \e -> Focus e Nothing
-        }
-    else stepTable
+  renderProblemNode problemHash =
+    stepTable
     where
     hasFocus = st.focus == Just problemHash
     stepTable =
@@ -229,21 +242,9 @@ renderStepsAsTree st@{ initProblem: Just initProblem } =
       Just step_ -> step_
       _ -> AbortStep { detail: "No step with hash " <> problemHash }
 
-    problem = case Map.lookup problemHash st.problems of
-      Just problem_ -> problem_
-      _ -> dummyProblem
-
     renderSubProblem p =
       HH.tr [ HP.style "vertical-align: top;" ]
-        [ HH.td_ [ HH.text "-" ], HH.td_ [ renderProblem p.contentHash ] ]
-
-    (varRanges :: Array _) = Map.toUnfoldable $ problem.scope.varDomains
-    boxDescription = Array.concat $ map describeVar varRanges
-
-    describeVar :: (Tuple Var Interval) -> Array _
-    describeVar (Tuple var { l, u }) = [ HH.text descr, HH.br_ ]
-      where
-      descr = var <> " ∈ [ " <> (show l) <> ", " <> show u <> " ]"
+        [ HH.td_ [ HH.text "-" ], HH.td_ [ renderProblemNode p.contentHash ] ]
 
 showJust :: Maybe String -> String
 showJust (Just v) = v

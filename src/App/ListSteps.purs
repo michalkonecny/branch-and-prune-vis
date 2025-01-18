@@ -1,26 +1,11 @@
 module App.ListSteps
-  ( Action(..)
-  , State
-  , _getNewSteps
-  , addStep
-  , component
-  , getNewSteps
-  , handleAction
-  , initialState
-  , isDoneStep
-  , plotSizeX
-  , render
-  , renderStepsAsBoxes
-  , renderStepsAsTree
-  , showJust
-  , showNewProblems
-  , stepsEmitter
+  ( component
   ) where
 
 import Prelude
 
 import App.Steps (Boxes(..), Interval, Problem, ProblemHash, Step(..), Var, dummyProblem, getStepParent, getStepProblems, parseSteps, showStepEssence)
-import App.UIUtils (renderWithPopup)
+-- import App.UIUtils (renderWithPopup)
 import App.Utils (actOnStateUntil)
 import Control.Promise (Promise)
 import Control.Promise as Promise
@@ -197,7 +182,7 @@ renderStepsAsBoxes st@{ initProblem: Just initProblem } =
 
 renderFocusedProblem :: forall cs m. State -> Array (H.ComponentHTML Action cs m)
 renderFocusedProblem st@{ focus } =
-  case focus of 
+  case focus of
     Just problemHash -> problemDescription problemHash
     _ -> []
   where
@@ -246,15 +231,15 @@ renderStepsAsTree st@{ initProblem: Just initProblem } =
       HH.tr [ HP.style "vertical-align: top;" ]
         [ HH.td_ [ HH.text "-" ], HH.td_ [ renderProblemNode p.contentHash ] ]
 
-showJust :: Maybe String -> String
-showJust (Just v) = v
-showJust Nothing = ""
+-- showJust :: Maybe String -> String
+-- showJust (Just v) = v
+-- showJust Nothing = ""
 
-showNewProblems :: Step -> String
-showNewProblems step =
-  case getStepProblems step of
-    [] -> ""
-    problems -> " -> " <> show (map (\p -> p.contentHash) problems)
+-- showNewProblems :: Step -> String
+-- showNewProblems step =
+--   case getStepProblems step of
+--     [] -> ""
+--     problems -> " -> " <> show (map (\p -> p.contentHash) problems)
 
 handleAction :: forall cs o m. (MonadAff m) => Action -> H.HalogenM State Action cs o m Unit
 handleAction = case _ of

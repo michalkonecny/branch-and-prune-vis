@@ -12,26 +12,15 @@ module App.ListSteps
   , render
   , renderStepsAsBoxes
   , renderStepsAsTree
-  , renderWithPopup
   , showJust
   , showNewProblems
   , stepsEmitter
   ) where
 
-import App.Steps
-  ( Boxes(..)
-  , Interval
-  , Problem
-  , ProblemHash
-  , Step(..)
-  , Var
-  , dummyProblem
-  , getStepParent
-  , getStepProblems
-  , parseSteps
-  , showStepEssence
-  )
+import Prelude
 
+import App.Steps (Boxes(..), Interval, Problem, ProblemHash, Step(..), Var, dummyProblem, getStepParent, getStepProblems, parseSteps, showStepEssence)
+import App.UIUtils (renderWithPopup)
 import App.Utils (actOnStateUntil)
 import Control.Promise (Promise)
 import Control.Promise as Promise
@@ -45,7 +34,6 @@ import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Aff as Aff
 import Effect.Aff.Class (class MonadAff)
-import Halogen (ClassName(..))
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
@@ -54,7 +42,6 @@ import Halogen.Subscription as HS
 import Halogen.Svg.Attributes (Color(..))
 import Halogen.Svg.Attributes as SA
 import Halogen.Svg.Elements as SE
-import Prelude
 import Web.Event.Event (Event)
 import Web.Event.Event as Event
 import Web.UIEvent.MouseEvent (toEvent)
@@ -99,7 +86,8 @@ render state =
     [ HP.style "translate: 50px 20px;" ]
     [ HH.tbody_
         [ HH.tr_
-            [ HH.td_
+            [ HH.td
+                [ HP.colSpan 2 ]
                 [ HH.div
                     [ HP.style "overflow:scroll; width: 400px;height:600px;" ]
                     [ renderStepsAsTree state ]
@@ -108,6 +96,13 @@ render state =
                 [ HH.div
                     [ HP.style "margin-left: 20px;" ]
                     [ renderStepsAsBoxes state ]
+                ]
+            ]
+        , HH.tr_
+            [ HH.td_
+                [ HH.div
+                    [ HP.style "margin-left: 20px;" ]
+                    [ ] -- renderProblem state ]
                 ]
             ]
         ]
@@ -200,23 +195,6 @@ renderStepsAsBoxes st@{ initProblem: Just initProblem } =
 
   { pavingElements, overlayElements } = rectsForProblemHash initProblem.contentHash
 
-renderWithPopup
-  :: forall cs m
-   . { popupContents :: Array (H.ComponentHTML Action cs m)
-     , popupTargetElement :: H.ComponentHTML Action cs m
-     }
-  -> H.ComponentHTML Action cs m
-renderWithPopup { popupContents, popupTargetElement } =
-  HH.div [ HP.class_ (ClassName "popup") ]
-    [ popupTargetElement
-    , HH.span [ HP.class_ (ClassName "popupcontents show") ]
-        (popupContents <> [ closeIcon ])
-    ]
-  where
-  closeIcon = HH.div
-    [ HE.onClick (\e -> Focus (toEvent e) Nothing), HP.class_ (ClassName "popupcloseicon") ]
-    [ HH.text "ⓧ" ]
-
 renderStepsAsTree :: forall cs m. State -> H.ComponentHTML Action cs m
 renderStepsAsTree { initProblem: Nothing } = HH.text "No steps"
 renderStepsAsTree st@{ initProblem: Just initProblem } =
@@ -229,6 +207,7 @@ renderStepsAsTree st@{ initProblem: Just initProblem } =
             boxDescription <>
               [ HH.text $ problem.constraint ]
         , popupTargetElement: stepTable
+        , onClose: \e -> Focus e Nothing
         }
     else stepTable
     where

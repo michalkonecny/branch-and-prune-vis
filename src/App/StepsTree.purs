@@ -8,8 +8,9 @@ module App.StepsTree
 
 import Prelude
 
-import App.Steps (ProblemHash, Step(..), getStepProblems, showStepEssence)
+import App.Steps (Boxes(..), ProblemHash, Step(..), getStepProblems, showStepEssence)
 import App.StepsReader (StepsState)
+import Data.Array as Array
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Effect.Aff.Class (class MonadAff)
@@ -89,8 +90,10 @@ renderStepsAsTree { stepsState, focusedStep } =
         ]
 
     tableStyle
-      | hasFocus = "border: 2px solid;"
-      | otherwise = "border: 1px solid;"
+      | hasFocus = "border: 2px solid; border-color: red;" <> bgrStyle 
+      | otherwise = "border: 1px solid;" <> bgrStyle
+
+    bgrStyle = "background-color: " <> (stepColor step) <> ";"
 
     step = case Map.lookup problemHash stepsState.steps of
       Just step_ -> step_
@@ -100,3 +103,10 @@ renderStepsAsTree { stepsState, focusedStep } =
       HH.tr [ HP.style "vertical-align: top;" ]
         [ HH.td_ [ HH.text "-" ], HH.td_ [ renderProblemNode p.contentHash ] ]
 
+stepColor :: Step -> String
+stepColor = case _ of
+  PruneStep { prunePaving: { inner: Boxes innerBoxes, outer: Boxes outerBoxes, undecided: [] } } ->
+    if Array.null outerBoxes then "rgba(150,220,150,50)"
+    else if Array.null innerBoxes then "rgba(220,150,150,50)"
+    else "white"
+  _ -> "white"

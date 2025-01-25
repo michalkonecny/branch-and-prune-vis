@@ -2,7 +2,7 @@ module Main where
 
 import Prelude
 
-import App.ListSteps as ListSteps
+import App.Visualiser as Visualiser
 import App.PlotTest as PlotTest
 import Effect (Effect)
 import Halogen.Aff as HA
@@ -12,4 +12,4 @@ main :: Effect Unit
 main = HA.runHalogenAff do
   body <- HA.awaitBody
   -- runUI PlotTest.component unit body
-  runUI ListSteps.component unit body
+  runUI Visualiser.component unit body

@@ -17,7 +17,6 @@ import Data.Array as Array
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
-import Data.Traversable (sequence)
 import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Aff as Aff
@@ -59,15 +58,15 @@ component =
         }
     }
 
-data Action = Initialize | NewStep Step
+data Action = Initialize | NewSteps (Array Step)
 
 handleAction :: forall cs m. (MonadAff m) => Action -> H.HalogenM StepsState Action cs Output m Unit
 handleAction = case _ of
   Initialize -> do
     _ <- H.subscribe =<< stepsEmitter
     pure unit
-  NewStep step -> do 
-    H.modify_ (addStep step)
+  NewSteps steps -> do 
+    H.modify_ (\st -> Array.foldl (flip addStep) st steps)
     st <- H.get
     H.raise (OutputNewStepsState st)
 
@@ -106,20 +105,20 @@ stepsEmitter = do
   dealWithNewStepsAndWaitABit listener { howManyReadSoFar } = do
     steps <- getNewSteps howManyReadSoFar
     Aff.delay $ Aff.Milliseconds 10.0 -- without this the first step is emitted before subscription takes effect
-    _ <- sequence $ map (H.liftEffect <<< HS.notify listener) steps
+    _ <- H.liftEffect $ HS.notify listener $ NewSteps steps
     Aff.delay $ Aff.Milliseconds 100.0
     pure
       { howManyReadSoFar: howManyReadSoFar + (Array.length steps)
       , done: Array.any isDoneStep steps
       }
 
-isDoneStep :: Action -> Boolean
-isDoneStep (NewStep DoneStep) = true
+isDoneStep :: Step -> Boolean
+isDoneStep DoneStep = true
 isDoneStep _ = false
 
 foreign import _getNewSteps :: Int -> Effect (Promise (Array String))
 
-getNewSteps :: Int -> Aff (Array Action)
+getNewSteps :: Int -> Aff (Array Step)
 getNewSteps currLenghtRead = do
   stepTexts <- Promise.toAffE (_getNewSteps currLenghtRead)
-  pure $ map NewStep $ parseSteps stepTexts
+  pure $ parseSteps stepTexts

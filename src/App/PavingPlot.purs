@@ -16,12 +16,10 @@ import Data.Maybe (Maybe(..), maybe)
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
 import Halogen.HTML as HH
+import Halogen.HTML.Events as HE
 import Halogen.Svg.Attributes (Color(..))
 import Halogen.Svg.Attributes as SA
 import Halogen.Svg.Elements as SE
-import Web.Event.Event (Event)
-import Web.Event.Event as Event
--- import Web.UIEvent.MouseEvent as MouseEvent
 
 plotSizeX :: Number
 plotSizeX = 400.0
@@ -64,15 +62,14 @@ component =
         }
     }
 
-data Action = NewStepsState StepsState | ClickedStep Event ProblemHash
+data Action = NewStepsState StepsState | ClickedStep (Maybe ProblemHash)
 
 handleAction :: forall cs m. (MonadAff m) => Action -> H.HalogenM State Action cs Output m Unit
 handleAction = case _ of
   NewStepsState stepsState -> do
     H.modify_ $ \st -> st { stepsState = stepsState }
-  ClickedStep e problemHash -> do
-    H.liftEffect $ Event.stopPropagation e
-    H.raise (OutputNewFocusedStepRequest (Just problemHash))
+  ClickedStep maybeProblemHash -> do
+    H.raise (OutputNewFocusedStepRequest maybeProblemHash)
 
 handleQuery :: forall a cs m. (MonadAff m) => Query a -> H.HalogenM State Action cs Output m (Maybe a)
 handleQuery (TellNewFocusedStep focusedStep a) = do
@@ -128,6 +125,7 @@ renderStepsAsBoxes { stepsState, focusedStep, plotX, plotY } =
           , SA.strokeWidth 1.0
           , SA.fill color
           , SA.fillOpacity 0.2
+          , HE.onClick (\_ -> ClickedStep (Just problemHash)) -- select this leaf
           ]
 
       outlineRect = SE.rect $
@@ -136,6 +134,7 @@ renderStepsAsBoxes { stepsState, focusedStep, plotX, plotY } =
           , SA.strokeWidth 2.0
           , SA.fill color
           , SA.fillOpacity 0.0
+          , HE.onClick (\_ -> ClickedStep Nothing) -- unselect
           ]
 
       step = case Map.lookup problemHash stepsState.steps of

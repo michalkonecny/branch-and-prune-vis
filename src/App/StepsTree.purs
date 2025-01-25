@@ -13,6 +13,7 @@ import App.StepsReader (StepsState)
 import Data.Array as Array
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
+import Effect (Effect)
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
 import Halogen.HTML as HH
@@ -68,7 +69,15 @@ handleAction = case _ of
 handleQuery :: forall a cs m. (MonadAff m) => Query a -> H.HalogenM State Action cs Output m (Maybe a)
 handleQuery (TellNewFocusedStep focusedStep a) = do
   H.modify_ $ \st -> st { focusedStep = focusedStep }
+  H.liftEffect $ scrollToFocusedStepIfNotVisible focusedStep
   pure (Just a)
+
+scrollToFocusedStepIfNotVisible :: FocusedStep -> Effect Unit
+scrollToFocusedStepIfNotVisible Nothing = pure unit
+scrollToFocusedStepIfNotVisible (Just problemHash) = do
+  _scrollToElementIdIfNotVisible (makeTreeProblemId problemHash)
+
+foreign import _scrollToElementIdIfNotVisible :: String -> Effect Unit
 
 renderStepsAsTree :: forall cs m. State -> H.ComponentHTML Action cs m
 renderStepsAsTree { stepsState, focusedStep } =
@@ -82,7 +91,9 @@ renderStepsAsTree { stepsState, focusedStep } =
     hasFocus = focusedStep == Just problemHash
     stepTable =
       HH.table
-        [ HP.style tableStyle, HE.onClick (\e -> ClickedStep (MouseEvent.toEvent e) problemHash) ]
+        [ HP.style tableStyle,
+          HP.id (makeTreeProblemId problemHash),
+          HE.onClick (\e -> ClickedStep (MouseEvent.toEvent e) problemHash) ]
         [ HH.tbody_ $
             [ HH.tr_ [ HH.td [ HP.colSpan 2 ] [ HH.text $ showStepEssence step ] ] ]
               <>
@@ -110,3 +121,6 @@ stepColor = case _ of
     else if Array.null innerBoxes then "rgba(220,150,150,50)"
     else "white"
   _ -> "white"
+
+makeTreeProblemId :: ProblemHash -> String
+makeTreeProblemId problemHash = "tree-problem-" <> problemHash

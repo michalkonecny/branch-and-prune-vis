@@ -16,8 +16,8 @@ import Data.Maybe (Maybe(..), maybe)
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
 import Halogen.HTML as HH
-import Halogen.HTML.Properties as HP
 import Halogen.HTML.Events as HE
+import Halogen.HTML.Properties as HP
 import Halogen.Svg.Attributes (Color(..))
 import Halogen.Svg.Attributes as SA
 import Halogen.Svg.Elements as SE
@@ -39,16 +39,16 @@ data Output = OutputNewFocusedStepRequest FocusedStep
 type State =
   { stepsState :: StepsState
   , focusedStep :: FocusedStep
-  , plotX :: Var
-  , plotY :: Var
+  , plotX :: Maybe Var
+  , plotY :: Maybe Var
   }
 
 initialState :: Input -> State
 initialState input =
   { stepsState: input
   , focusedStep: Nothing
-  , plotX: "x"
-  , plotY: "y"
+  , plotX: Nothing
+  , plotY: Nothing
   }
 
 component :: forall m. (MonadAff m) => H.Component Query Input Output m
@@ -68,9 +68,26 @@ data Action = NewStepsState StepsState | ClickedStep (Maybe ProblemHash)
 handleAction :: forall cs m. (MonadAff m) => Action -> H.HalogenM State Action cs Output m Unit
 handleAction = case _ of
   NewStepsState stepsState -> do
-    H.modify_ $ \st -> st { stepsState = stepsState }
+    H.modify_ $ updateStepsState stepsState
   ClickedStep maybeProblemHash -> do
     H.raise (OutputNewFocusedStepRequest maybeProblemHash)
+
+updateStepsState :: StepsState -> State -> State
+updateStepsState stepsState st
+  | st.plotX == Nothing && st.plotY == Nothing =
+      -- plot variables not set yet
+      -- set them to the first variables in the initial problem
+      let
+        vars = case stepsState.initProblem of
+          Nothing -> []
+          Just problem -> problem.scope.splitOrder
+      in
+        st
+          { stepsState = stepsState
+          , plotX = vars Array.!! 0
+          , plotY = vars Array.!! 1
+          }
+  | otherwise = st { stepsState = stepsState }
 
 handleQuery :: forall a cs m. (MonadAff m) => Query a -> H.HalogenM State Action cs Output m (Maybe a)
 handleQuery (TellNewFocusedStep focusedStep a) = do
@@ -87,12 +104,12 @@ renderStepsAsBoxes { stepsState, focusedStep, plotX, plotY } =
     HH.table_
       [ HH.tbody_
           [ HH.tr_ [ HH.td_ [ yAxisLabel ], HH.td_ [ plot ] ]
-          , HH.tr_ [ HH.td_ [], HH.td [HP.style "text-align: center;"] [ xAxisLabel ] ]
+          , HH.tr_ [ HH.td_ [], HH.td [ HP.style "text-align: center;" ] [ xAxisLabel ] ]
           ]
       ]
     where
-    xAxisLabel = HH.text plotX
-    yAxisLabel = HH.text plotY
+    xAxisLabel = HH.text $ maybe "" identity plotX
+    yAxisLabel = HH.text $ maybe "" identity plotY
     plot = SE.svg
       [ SA.width (plotSizeX + 5.0)
       , SA.height (plotSizeY + 5.0)
@@ -101,8 +118,8 @@ renderStepsAsBoxes { stepsState, focusedStep, plotX, plotY } =
       (pavingElements <> overlayElements)
       where
       initVarDomains = initProblem.scope.varDomains
-      initXrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup plotX initVarDomains)
-      initYrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup plotY initVarDomains)
+      initXrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (plotX >>= flip Map.lookup initVarDomains)
+      initYrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (plotY >>= flip Map.lookup initVarDomains)
       initXspan = initXrange.u - initXrange.l
       initYspan = initYrange.u - initYrange.l
 
@@ -164,8 +181,8 @@ renderStepsAsBoxes { stepsState, focusedStep, plotX, plotY } =
 
         varDomains = problem.scope.varDomains
 
-        xrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup plotX varDomains)
-        yrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (Map.lookup plotY varDomains)
+        xrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (plotX >>= flip Map.lookup varDomains)
+        yrange = maybe { l: 0.0, u: 1.0 } (\x -> x) (plotY >>= flip Map.lookup varDomains)
         xScreenRange = toScreenRangeX xrange
         yScreenRange = toScreenRangeY yrange
 

@@ -1,11 +1,11 @@
 module App.StepDetail
-  ( Slot
-  , component
-  , Input
+  ( Input
+  , Output(..)
+  , Query(..)
+  , Slot
   , State
   , StepInfo(..)
-  , Query(..)
-  , Output(..)
+  , component
   ) where
 
 import Prelude
@@ -18,7 +18,6 @@ import Data.Tuple (Tuple(..))
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
 import Halogen.HTML as HH
-
 
 type State = Maybe StepInfo
 
@@ -60,7 +59,7 @@ renderFocusedStep :: forall cs m. State -> H.ComponentHTML Action cs m
 renderFocusedStep Nothing = HH.div_ []
 renderFocusedStep (Just { problem }) =
   HH.div_
-    (boxDescription <> [ HH.text $ problem.constraint ])
+    (boxDescription <> [ HH.text $ show problem.constraint ])
   where
   (varRanges :: Array _) = Map.toUnfoldable $ problem.scope.varDomains
   boxDescription = Array.concat $ map describeVar varRanges

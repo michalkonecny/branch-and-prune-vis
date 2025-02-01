@@ -10,6 +10,7 @@ import Data.Maybe (Maybe(..))
 import Data.NonEmpty ((:|))
 import Foreign (ForeignError(..))
 import Yoga.JSON (class ReadForeign, E, readImpl)
+-- import Debug 
 
 class FromString t where
   fromString :: String -> Maybe t
@@ -18,31 +19,44 @@ data BinaryComp = CompLeq | CompEq
 
 derive instance Generic BinaryComp _
 
+instance Show BinaryComp where
+  show CompLeq = "≤"
+  show CompEq = "="
+
 instance FromString BinaryComp
   where
-  fromString "CompLeq" = Just CompLeq
-  fromString "CompEq" = Just CompEq
+  fromString "≤" = Just CompLeq
+  fromString "=" = Just CompEq
   fromString _ = Nothing
 
 data UnaryConn = ConnNeg
+
+instance Show UnaryConn where
+  show ConnNeg = "¬"
 
 derive instance Generic UnaryConn _
 
 instance FromString UnaryConn
   where
-  fromString "ConnNeg" = Just ConnNeg
+  fromString "¬" = Just ConnNeg
   fromString _ = Nothing
 
 data BinaryConn = ConnAnd | ConnOr | ConnImpl
 
 derive instance Generic BinaryConn _
 
+instance Show BinaryConn where
+  show ConnAnd = "∧"
+  show ConnOr = "∨"
+  show ConnImpl = "⇒"
+
 instance FromString BinaryConn
   where
-  fromString "ConnAnd" = Just ConnAnd
-  fromString "ConnOr" = Just ConnOr
-  fromString "ConnImpl" = Just ConnImpl
+  fromString "∧" = Just ConnAnd
+  fromString "∨" = Just ConnOr
+  fromString "⇒" = Just ConnImpl
   fromString _ = Nothing
+  -- fromString s = trace ("BinaryConn fromString failed for: " <> s) (\_ -> Nothing)
 
 data Form
   = FormComp { comp :: BinaryComp, e1 :: String, e2 :: String }
@@ -51,10 +65,6 @@ data Form
   | FormIfThenElse { fc :: Form, ft :: Form, ff :: Form }
   | FormTrue
   | FormFalse
-
-instance Show Form where
-  show f = "Form ..."
-  -- TODO define HTML encoding
 
 type Form' = {
   tag:: String,

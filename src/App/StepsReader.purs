@@ -14,6 +14,7 @@ import App.Utils (actOnStateUntil)
 import Control.Promise (Promise)
 import Control.Promise as Promise
 import Data.Array as Array
+import Data.Either (Either(..))
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
@@ -21,6 +22,8 @@ import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Aff as Aff
 import Effect.Aff.Class (class MonadAff)
+import Effect.Console (log)
+import Halogen (liftEffect)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.Subscription as HS
@@ -121,4 +124,8 @@ foreign import _getNewSteps :: Int -> Effect (Promise (Array String))
 getNewSteps :: Int -> Aff (Array Step)
 getNewSteps currLenghtRead = do
   stepTexts <- Promise.toAffE (_getNewSteps currLenghtRead)
-  pure $ parseSteps stepTexts
+  case parseSteps stepTexts of
+    Right steps -> pure steps
+    Left errs -> do
+      liftEffect $ log (show errs)
+      pure [DoneStep]

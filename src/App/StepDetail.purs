@@ -1,15 +1,16 @@
 module App.StepDetail
-  ( Slot
-  , component
-  , Input
+  ( Input
+  , Output(..)
+  , Query(..)
+  , Slot
   , State
   , StepInfo(..)
-  , Query(..)
-  , Output(..)
+  , component
   ) where
 
 import Prelude
 
+import App.Form (Form(..))
 import App.Steps (Interval, Problem, Step, Var)
 import Data.Array as Array
 import Data.Map as Map
@@ -18,7 +19,7 @@ import Data.Tuple (Tuple(..))
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
 import Halogen.HTML as HH
-
+import Halogen.HTML.Properties as HP
 
 type State = Maybe StepInfo
 
@@ -60,7 +61,7 @@ renderFocusedStep :: forall cs m. State -> H.ComponentHTML Action cs m
 renderFocusedStep Nothing = HH.div_ []
 renderFocusedStep (Just { problem }) =
   HH.div_
-    (boxDescription <> [ HH.text $ problem.constraint ])
+    (boxDescription <> [ HH.div_ $ renderForm problem.constraint ])
   where
   (varRanges :: Array _) = Map.toUnfoldable $ problem.scope.varDomains
   boxDescription = Array.concat $ map describeVar varRanges
@@ -69,3 +70,33 @@ renderFocusedStep (Just { problem }) =
   describeVar (Tuple var { l, u }) = [ HH.text descr, HH.br_ ]
     where
     descr = var <> " ∈ [ " <> (show l) <> ", " <> show u <> " ]"
+
+renderForm :: forall cs m. Form -> Array (H.ComponentHTML Action cs m)
+renderForm FormTrue = [ HH.text "True" ]
+renderForm FormFalse = [ HH.text "False" ]
+renderForm (FormComp { comp, e1, e2 }) =
+  [ HH.text $ e1 <> " " <> show comp <> " " <> e2 ]
+renderForm (FormUnary { uconn, f1 }) =
+  [ HH.text $ show uconn, HH.div [ formStyle ] f1H ]
+  where
+  f1H = renderForm f1
+renderForm (FormBinary { bconn, f1, f2 }) =
+  [ HH.div [ formStyle ] f1H
+  , HH.text $ show bconn
+  , HH.div [ formStyle ] f2H
+  ]
+  where
+  f1H = renderForm f1
+  f2H = renderForm f2
+renderForm (FormIfThenElse { fc, ft, ff }) =
+  [ HH.div [ formStyle ] $ [ HH.text "if " ] <> fcH
+  , HH.div [ formStyle ] $ [ HH.text "then " ] <> ftH
+  , HH.div [ formStyle ] $ [ HH.text "else " ] <> ffH
+  ]
+  where
+  fcH = renderForm fc
+  ftH = renderForm ft
+  ffH = renderForm ff
+
+formStyle :: _
+formStyle = HP.style "border-style: dotted; margin: 5px;"

@@ -5,20 +5,21 @@ module App.Steps
   , Paving
   , Problem
   , ProblemHash
-  , Step'
   , Step(..)
   , Var
+  , dummyProblem
   , fromStep'
   , getStepParent
   , getStepProblems
   , getStepsProblems
   , parseSteps
   , showStepEssence
-  , dummyProblem
-  ) where
+  )
+  where
 
 import Prelude
 
+import App.Form (Form(..))
 import Control.Monad.Except (except)
 import Data.Array as Array
 import Data.Either (Either(..))
@@ -28,7 +29,8 @@ import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.NonEmpty ((:|))
-import Foreign (ForeignError(..))
+import Data.Traversable (sequence)
+import Foreign (ForeignError(..), MultipleErrors)
 import Yoga.JSON (class ReadForeign, E, readImpl, readJSON)
 import Yoga.JSON.Generics.TaggedSumRep (genericReadForeignTaggedSum)
 import Yoga.JSON.Generics.TaggedSumRep as TaggedSumRep
@@ -59,12 +61,12 @@ type ProblemHash = String
 
 type Problem =
   { scope :: Box
-  , constraint :: String
+  , constraint :: Form
   , contentHash :: ProblemHash
   }
 
 dummyProblem :: Problem
-dummyProblem = { scope: dummyBox, constraint: "", contentHash: "" }
+dummyProblem = { scope: dummyBox, constraint: FormTrue, contentHash: "" }
 
 type Paving =
   { scope :: Box
@@ -95,8 +97,6 @@ data Step
       { detail :: String
       }
   | DoneStep
-
-derive instance Generic Step _
 
 type Step' =
   { tag :: String
@@ -185,11 +185,6 @@ getStepParent (GiveUpOnProblemStep { problemHash }) = Just problemHash
 getStepParent (AbortStep _) = Nothing
 getStepParent (DoneStep) = Nothing
 
-parseSteps :: Array String -> Array Step
+parseSteps :: Array String -> E (Array Step)
 parseSteps stepJSONs =
-  Array.catMaybes $ map tryParse stepJSONs
-  where
-  tryParse s =
-    case readJSON s of
-      Left _ -> Nothing
-      Right step -> Just step
+  sequence $ map readJSON stepJSONs

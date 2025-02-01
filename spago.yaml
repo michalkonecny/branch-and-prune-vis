@@ -4,6 +4,7 @@ package:
     - aff
     - aff-promise
     - console
+    - debug
     - effect
     - halogen
     - halogen-subscriptions

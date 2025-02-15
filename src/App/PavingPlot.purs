@@ -7,9 +7,8 @@ module App.PavingPlot
 
 import Prelude
 
-import App.Steps (Boxes(..), ProblemHash, Step(..), Var, dummyProblem, getStepProblems)
+import App.Steps (Boxes(..), ProblemHash, Step(..), Var, MaybeStep, dummyProblem, getStepProblems)
 import App.StepsReader (StepsState)
-import App.StepsTree (FocusedStep)
 import Data.Array as Array
 import Data.Map as Map
 import Data.Maybe (Maybe(..), maybe)
@@ -32,13 +31,13 @@ type Slot id = H.Slot Query Output id
 
 type Input = StepsState
 
-data Query a = TellNewFocusedStep FocusedStep a
+data Query a = TellNewFocusedStep MaybeStep a
 
-data Output = OutputNewFocusedStepRequest FocusedStep
+data Output = OutputNewFocusedStepRequest MaybeStep
 
 type State =
   { stepsState :: StepsState
-  , focusedStep :: FocusedStep
+  , focusedStep :: MaybeStep
   , plotX :: Maybe Var
   , plotY :: Maybe Var
   }

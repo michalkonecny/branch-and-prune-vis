@@ -2,6 +2,7 @@ module App.Steps
   ( Box
   , Boxes(..)
   , Interval
+  , MaybeStep
   , Paving
   , Problem
   , ProblemHash
@@ -77,6 +78,8 @@ type Paving =
 
 dummyPaving :: Paving
 dummyPaving = { scope: dummyBox, inner: Boxes [], undecided: [], outer: Boxes [] }
+
+type MaybeStep = Maybe ProblemHash
 
 data Step
   = InitStep

@@ -4,15 +4,13 @@ import Prelude
 
 import App.PavingPlot as PavingPlot
 import App.StepDetail as StepDetail
+import App.Steps (MaybeStep)
 import App.StepsReader (StepsState)
 import App.StepsReader as StepsReader
-import App.StepsTree (FocusedStep)
 import App.StepsTree as StepsTree
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Effect.Aff.Class (class MonadAff)
--- import Effect.Console (log)
--- import Halogen (liftEffect)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
@@ -45,7 +43,7 @@ _stepDetailId = 3
 
 type State =
   { stepsState :: StepsState
-  , focusedStep :: FocusedStep
+  , focusedStep :: MaybeStep
   }
 
 initialState :: forall i. i -> State
@@ -67,7 +65,7 @@ getStepInfo { stepsState, focusedStep } =
             Just step -> 
               Just { problem, step }
 
-data Action = NewStepsState StepsState | NewFocusedStep FocusedStep
+data Action = NewStepsState StepsState | NewFocusedStep MaybeStep
 
 component :: forall q i o m. (MonadAff m) => H.Component q i o m
 component =

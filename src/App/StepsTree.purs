@@ -2,13 +2,12 @@ module App.StepsTree
   ( Slot,
     component,
     Query(..),
-    FocusedStep,
     Output(..)
   ) where
 
 import Prelude
 
-import App.Steps (Boxes(..), ProblemHash, Step(..), getStepProblems, showStepEssence)
+import App.Steps (Boxes(..), ProblemHash, MaybeStep, Step(..), getStepProblems, showStepEssence)
 import App.StepsReader (StepsState)
 import Data.Array as Array
 import Data.Map as Map
@@ -23,18 +22,17 @@ import Web.Event.Event (Event)
 import Web.Event.Event as Event
 import Web.UIEvent.MouseEvent as MouseEvent
 
-type FocusedStep = Maybe ProblemHash
-
 type State =
   { stepsState :: StepsState
-  , focusedStep :: FocusedStep
+  , focusedStep :: MaybeStep
+  -- , zoomStep :: MaybeStep
   }
 
 type Input = StepsState
 
-data Query a = TellNewFocusedStep FocusedStep a
+data Query a = TellNewFocusedStep MaybeStep a
 
-data Output = OutputNewFocusedStepRequest FocusedStep
+data Output = OutputNewFocusedStepRequest MaybeStep
 
 type Slot id = H.Slot Query Output id
 
@@ -72,7 +70,7 @@ handleQuery (TellNewFocusedStep focusedStep a) = do
   H.liftEffect $ scrollToFocusedStepIfNotVisible focusedStep
   pure (Just a)
 
-scrollToFocusedStepIfNotVisible :: FocusedStep -> Effect Unit
+scrollToFocusedStepIfNotVisible :: MaybeStep -> Effect Unit
 scrollToFocusedStepIfNotVisible Nothing = pure unit
 scrollToFocusedStepIfNotVisible (Just problemHash) = do
   _scrollToElementIdIfNotVisible (makeTreeProblemId problemHash)

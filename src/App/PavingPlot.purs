@@ -7,7 +7,7 @@ module App.PavingPlot
 
 import Prelude
 
-import App.Steps (Boxes(..), ProblemHash, Step(..), Var, MaybeStep, dummyProblem, getStepProblems)
+import App.Steps (Boxes(..), MaybeStep, Step(..), Var, ProblemHash, dummyProblem, getStepProblems)
 import App.StepsReader (StepsState)
 import Data.Array as Array
 import Data.Map as Map
@@ -31,13 +31,14 @@ type Slot id = H.Slot Query Output id
 
 type Input = StepsState
 
-data Query a = TellNewFocusedStep MaybeStep a
+data Query a = TellNewFocusedStep MaybeStep a | TellNewZoomedStep MaybeStep a
 
-data Output = OutputNewFocusedStepRequest MaybeStep
+data Output = OutputNewFocusedStepRequest MaybeStep | OutputNewZoomedStepRequest MaybeStep
 
 type State =
   { stepsState :: StepsState
   , focusedStep :: MaybeStep
+  , zoomedStep :: MaybeStep
   , plotX :: Maybe Var
   , plotY :: Maybe Var
   }
@@ -46,6 +47,7 @@ initialState :: Input -> State
 initialState input =
   { stepsState: input
   , focusedStep: Nothing
+  , zoomedStep: Nothing
   , plotX: Nothing
   , plotY: Nothing
   }
@@ -62,7 +64,7 @@ component =
         }
     }
 
-data Action = NewStepsState StepsState | ClickedStep (Maybe ProblemHash)
+data Action = NewStepsState StepsState | ClickedStep (Maybe ProblemHash) | ZoomTo (Maybe ProblemHash)
 
 handleAction :: forall cs m. (MonadAff m) => Action -> H.HalogenM State Action cs Output m Unit
 handleAction = case _ of
@@ -70,6 +72,8 @@ handleAction = case _ of
     H.modify_ $ updateStepsState stepsState
   ClickedStep maybeProblemHash -> do
     H.raise (OutputNewFocusedStepRequest maybeProblemHash)
+  ZoomTo maybeProblemHash -> do
+    H.raise (OutputNewZoomedStepRequest maybeProblemHash)
 
 updateStepsState :: StepsState -> State -> State
 updateStepsState stepsState st
@@ -92,18 +96,33 @@ handleQuery :: forall a cs m. (MonadAff m) => Query a -> H.HalogenM State Action
 handleQuery (TellNewFocusedStep focusedStep a) = do
   H.modify_ $ \st -> st { focusedStep = focusedStep }
   pure (Just a)
+handleQuery (TellNewZoomedStep zoomedStep a) = do
+  H.modify_ $ \st -> st { zoomedStep = zoomedStep }
+  pure (Just a)
 
 renderStepsAsBoxes :: forall cs m. State -> H.ComponentHTML Action cs m
-renderStepsAsBoxes { stepsState, focusedStep, plotX, plotY } =
+renderStepsAsBoxes { stepsState, focusedStep, zoomedStep, plotX, plotY } =
   case stepsState.initProblem of
     Nothing -> HH.text "No steps"
-    Just initProblem -> renderBoxes initProblem
+    Just initProblem ->
+      case zoomedStep of
+        Just zoomedProblemHash ->
+          case Map.lookup zoomedProblemHash stepsState.problems of
+            Just zoomedProblem -> renderBoxes zoomedProblem
+            _ -> renderBoxes initProblem
+        _ -> renderBoxes initProblem
   where
   renderBoxes initProblem =
     HH.table_
       [ HH.tbody_
           [ HH.tr_ [ HH.td_ [ yAxisLabel ], HH.td_ [ plot ] ]
-          , HH.tr_ [ HH.td_ [], HH.td [ HP.style "text-align: center;" ] [ xAxisLabel ] ]
+          , HH.tr_
+              [ HH.td_
+                  [ HH.button [ HE.onClick (\_ -> ZoomTo focusedStep) ] [ HH.text "🔍" ]
+                  , HH.button [ HE.onClick (\_ -> ZoomTo Nothing) ] [ HH.text "X" ]
+                  ]
+              , HH.td [ HP.style "text-align: center;" ] [ xAxisLabel ]
+              ]
           ]
       ]
     where

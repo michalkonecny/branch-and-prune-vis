@@ -25,12 +25,12 @@ import Web.UIEvent.MouseEvent as MouseEvent
 type State =
   { stepsState :: StepsState
   , focusedStep :: MaybeStep
-  -- , zoomStep :: MaybeStep
+  , zoomedStep :: MaybeStep
   }
 
 type Input = StepsState
 
-data Query a = TellNewFocusedStep MaybeStep a
+data Query a = TellNewFocusedStep MaybeStep a | TellNewZoomedStep MaybeStep a
 
 data Output = OutputNewFocusedStepRequest MaybeStep
 
@@ -40,6 +40,7 @@ initialState :: Input -> State
 initialState input =
   { stepsState: input
   , focusedStep: Nothing
+  , zoomedStep: Nothing
   }
 
 data Action = NewStepsState StepsState | ClickedStep Event ProblemHash
@@ -69,6 +70,9 @@ handleQuery (TellNewFocusedStep focusedStep a) = do
   H.modify_ $ \st -> st { focusedStep = focusedStep }
   H.liftEffect $ scrollToFocusedStepIfNotVisible focusedStep
   pure (Just a)
+handleQuery (TellNewZoomedStep zoomedStep a) = do
+  H.modify_ $ \st -> st { zoomedStep = zoomedStep }
+  pure (Just a)
 
 scrollToFocusedStepIfNotVisible :: MaybeStep -> Effect Unit
 scrollToFocusedStepIfNotVisible Nothing = pure unit
@@ -78,7 +82,7 @@ scrollToFocusedStepIfNotVisible (Just problemHash) = do
 foreign import _scrollToElementIdIfNotVisible :: String -> Effect Unit
 
 renderStepsAsTree :: forall cs m. State -> H.ComponentHTML Action cs m
-renderStepsAsTree { stepsState, focusedStep } =
+renderStepsAsTree { stepsState, focusedStep, zoomedStep } =
   case stepsState.initProblem of
     Nothing -> HH.text "No steps"
     Just initProblem -> renderProblemNode initProblem.contentHash
@@ -87,6 +91,7 @@ renderStepsAsTree { stepsState, focusedStep } =
     stepTable
     where
     hasFocus = focusedStep == Just problemHash
+    isZoomedTo = zoomedStep == Just problemHash
     stepTable =
       HH.table
         [ HP.style tableStyle,
@@ -99,6 +104,8 @@ renderStepsAsTree { stepsState, focusedStep } =
         ]
 
     tableStyle
+      | isZoomedTo && hasFocus = "border: 4px solid; border-color: red;" <> bgrStyle 
+      | isZoomedTo = "border: 4px solid; border-color: blue;" <> bgrStyle 
       | hasFocus = "border: 2px solid; border-color: red;" <> bgrStyle 
       | otherwise = "border: 1px solid;" <> bgrStyle
 

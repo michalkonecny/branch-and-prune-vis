@@ -11,6 +11,8 @@ import App.StepsTree as StepsTree
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Effect.Aff.Class (class MonadAff)
+import Effect.Console (log)
+import Halogen (liftEffect)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
@@ -44,12 +46,14 @@ _stepDetailId = 3
 type State =
   { stepsState :: StepsState
   , focusedStep :: MaybeStep
+  , zoomedStep :: MaybeStep
   }
 
 initialState :: forall i. i -> State
 initialState _ =
   { stepsState: StepsReader.initialState unit
   , focusedStep: Nothing
+  , zoomedStep: Nothing
   }
 
 getStepInfo :: State -> StepDetail.Input
@@ -65,7 +69,7 @@ getStepInfo { stepsState, focusedStep } =
             Just step -> 
               Just { problem, step }
 
-data Action = NewStepsState StepsState | NewFocusedStep MaybeStep
+data Action = NewStepsState StepsState | NewFocusedStep MaybeStep | NewZoomedStep MaybeStep
 
 component :: forall q i o m. (MonadAff m) => H.Component q i o m
 component =
@@ -85,6 +89,11 @@ handleAction = case _ of
     H.modify_ $ \st -> st { focusedStep = focusedStep }
     H.tell _stepsTree _stepsTreeId (StepsTree.TellNewFocusedStep focusedStep)
     H.tell _pavingPlot _pavingPlotId (PavingPlot.TellNewFocusedStep focusedStep)
+  NewZoomedStep zoomedStep -> do
+    liftEffect $ log "zoomedStep"
+    H.modify_ $ \st -> st { zoomedStep = zoomedStep }
+    H.tell _stepsTree _stepsTreeId (StepsTree.TellNewZoomedStep zoomedStep)
+    H.tell _pavingPlot _pavingPlotId (PavingPlot.TellNewZoomedStep zoomedStep)
 
 handleStepsReaderOutput :: StepsReader.Output -> Action
 handleStepsReaderOutput = case _ of
@@ -97,6 +106,7 @@ handleStepsTreeOutput = case _ of
 handlePavingPlotOutput :: PavingPlot.Output -> Action
 handlePavingPlotOutput = case _ of
   (PavingPlot.OutputNewFocusedStepRequest focusedStep) -> NewFocusedStep focusedStep
+  (PavingPlot.OutputNewZoomedStepRequest zoomedStep) -> NewZoomedStep zoomedStep
 
 renderVisualiser :: forall m. (MonadAff m) => State -> H.ComponentHTML Action Slots m
 renderVisualiser state =

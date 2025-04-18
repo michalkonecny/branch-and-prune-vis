@@ -10,11 +10,14 @@ module App.StepDetail
 
 import Prelude
 
+import App.Expr (Expr(..))
 import App.Form (Form(..))
 import App.Steps (Interval, Problem, Step, Var)
 import Data.Array as Array
+import Data.Foldable (sum)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
+import Data.String as String
 import Data.Tuple (Tuple(..))
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
@@ -61,7 +64,7 @@ renderFocusedStep :: forall cs m. State -> H.ComponentHTML Action cs m
 renderFocusedStep Nothing = HH.div_ []
 renderFocusedStep (Just { problem }) =
   HH.div_
-    (boxDescription <> [ HH.div_ $ renderForm problem.constraint ])
+    (boxDescription <> [ (renderForm problem.constraint).html ])
   where
   (varRanges :: Array _) = Map.toUnfoldable $ problem.scope.varDomains
   boxDescription = Array.concat $ map describeVar varRanges
@@ -71,32 +74,54 @@ renderFocusedStep (Just { problem }) =
     where
     descr = var <> " ∈ [ " <> (show l) <> ", " <> show u <> " ]"
 
-renderForm :: forall cs m. Form -> Array (H.ComponentHTML Action cs m)
-renderForm FormTrue = [ HH.text "True" ]
-renderForm FormFalse = [ HH.text "False" ]
+renderForm :: forall cs m. Form -> { html :: H.ComponentHTML Action cs m, width :: Int }
+renderForm FormTrue = renderedString "True"
+renderForm FormFalse = renderedString "False"
 renderForm (FormComp { comp, e1, e2 }) =
-  [ HH.text $ e1 <> " " <> show comp <> " " <> e2 ]
+  alignHorizOrVert [ renderExpr e1, renderedString (show comp), renderExpr e2 ]
 renderForm (FormUnary { uconn, f1 }) =
-  [ HH.text $ show uconn, HH.div [ formStyle ] f1H ]
-  where
-  f1H = renderForm f1
+  alignHorizOrVert [ renderedString (show uconn), renderForm f1 ]
 renderForm (FormBinary { bconn, f1, f2 }) =
-  [ HH.div [ formStyle ] f1H
-  , HH.text $ show bconn
-  , HH.div [ formStyle ] f2H
-  ]
-  where
-  f1H = renderForm f1
-  f2H = renderForm f2
+  alignHorizOrVert [ renderForm f1, renderedString (show bconn), renderForm f2 ]
 renderForm (FormIfThenElse { fc, ft, ff }) =
-  [ HH.div [ formStyle ] $ [ HH.text "if " ] <> fcH
-  , HH.div [ formStyle ] $ [ HH.text "then " ] <> ftH
-  , HH.div [ formStyle ] $ [ HH.text "else " ] <> ffH
-  ]
-  where
-  fcH = renderForm fc
-  ftH = renderForm ft
-  ffH = renderForm ff
+  alignHorizOrVert
+    [ renderedString "if"
+    , renderForm fc
+    , renderedString "then"
+    , renderForm ft
+    , renderedString "else"
+    , renderForm ff
+    ]
 
-formStyle :: _
-formStyle = HP.style "border-style: dotted; margin: 5px;"
+renderExpr :: forall cs m. Expr -> { html :: H.ComponentHTML Action cs m, width :: Int }
+renderExpr (ExprVar { var }) = renderedStringDiv var
+renderExpr (ExprLit { lit }) = renderedStringDiv (show lit)
+renderExpr (ExprUnary { unop, e1 }) =
+  alignHorizOrVert [ renderedString (show unop), renderExpr e1 ]
+renderExpr (ExprBinary { binop, e1, e2 }) =
+  alignHorizOrVert [ renderExpr e1, renderedString (show binop), renderExpr e2 ]
+
+renderedString :: forall cs m. String -> { html :: H.ComponentHTML Action cs m, width :: Int }
+renderedString s = { html: HH.text s, width: String.length s }
+
+renderedStringDiv :: forall cs m. String -> { html :: H.ComponentHTML Action cs m, width :: Int }
+renderedStringDiv s = { html: HH.div [ formStyle ] [ HH.text s ], width: 1 + (String.length s) }
+
+alignHorizOrVert :: forall cs m. Array { html :: H.ComponentHTML Action cs m, width :: Int } -> { html :: H.ComponentHTML Action cs m, width :: Int }
+alignHorizOrVert elements =
+  if widthHoriz < 50 then { html: htmlHoriz, width: widthHoriz }
+  else { html: htmlVert, width: widthVert }
+  where
+  widths = map (\e -> e.width) elements
+  n = Array.length widths
+  widthHoriz = sum widths + n + 1
+  widthVert = (Array.foldl max 0 widths) + 2
+  htmls = map (\e -> e.html) elements
+  htmlVert = HH.div [ formStyle ] htmls
+  htmlHoriz = HH.div [ formStyleHoriz ] htmls
+
+formStyle :: forall r i. HH.IProp (style :: String | r) i
+formStyle = HP.style "border-style: dotted; margin: 1px 5px;"
+
+formStyleHoriz :: forall r i. HH.IProp (style :: String | r) i
+formStyleHoriz = HP.style "border-style: dotted; margin: 1px 5px; display: flex; align-items: center;"

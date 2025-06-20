@@ -20,6 +20,7 @@ import Halogen.HTML.Properties as HP
 import Halogen.Svg.Attributes (Color(..))
 import Halogen.Svg.Attributes as SA
 import Halogen.Svg.Elements as SE
+import Halogen.Themes.Bootstrap5 as BS5
 
 plotSizeX :: Number
 plotSizeX = 400.0
@@ -113,21 +114,28 @@ renderStepsAsBoxes { stepsState, focusedStep, zoomedStep, plotX, plotY } =
         _ -> renderBoxes initProblem
   where
   renderBoxes initProblem =
-    HH.table_
-      [ HH.tbody_
-          [ HH.tr_ [ HH.td_ [ yAxisLabel ], HH.td_ [ plot ] ]
-          , HH.tr_
-              [ HH.td_
-                  [ HH.button [ HE.onClick (\_ -> ZoomTo focusedStep) ] [ HH.text "🔍" ]
-                  , HH.button [ HE.onClick (\_ -> ZoomTo Nothing) ] [ HH.text "X" ]
+    HH.div [ HP.classes [ BS5.col ] ]
+      [ HH.table_
+          [ HH.tbody_
+              [ HH.tr_ [ HH.td_ [ yAxisLabel ], HH.td_ [ plot ] ]
+              , HH.tr_
+                  [ HH.td_ []
+                  , HH.td [ HP.style "text-align: center;" ] [ xAxisLabel ]
                   ]
-              , HH.td [ HP.style "text-align: center;" ] [ xAxisLabel ]
               ]
+          ]
+      , HH.div [ HP.classes [ BS5.dFlex ] ]
+          [ HH.button [ HE.onClick (\_ -> ZoomTo focusedStep) ] [ HH.text "🔍" ]
+          , HH.button [ HE.onClick (\_ -> ZoomTo Nothing) ] [ HH.text "X" ]
           ]
       ]
     where
-    xAxisLabel = HH.text $ maybe "" identity plotX
-    yAxisLabel = HH.text $ maybe "" identity plotY
+    xAxisLabel = HH.div
+      [ HP.classes [ BS5.m1 ] ]
+      [ HH.text $ maybe "" identity plotX ]
+    yAxisLabel = HH.div
+      [ HP.classes [ BS5.m1 ], HP.style "transform: rotate(90deg);" ]
+      [ HH.text $ maybe "" identity plotY ]
     plot = SE.svg
       [ SA.width (plotSizeX + 5.0)
       , SA.height (plotSizeY + 5.0)

@@ -16,6 +16,7 @@ import Halogen (liftEffect)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
+import Halogen.Themes.Bootstrap5 as BS5
 import Type.Proxy (Proxy(..))
 
 type Slots =
@@ -42,7 +43,6 @@ _pavingPlotId = 2
 _stepDetailId :: Int
 _stepDetailId = 3
 
-
 type State =
   { stepsState :: StepsState
   , focusedStep :: MaybeStep
@@ -63,10 +63,10 @@ getStepInfo { stepsState, focusedStep } =
     Just problemHash ->
       case Map.lookup problemHash stepsState.problems of
         Nothing -> Nothing
-        Just problem -> 
+        Just problem ->
           case Map.lookup problemHash stepsState.steps of
             Nothing -> Nothing
-            Just step -> 
+            Just step ->
               Just { problem, step }
 
 data Action = NewStepsState StepsState | NewFocusedStep MaybeStep | NewZoomedStep MaybeStep
@@ -110,30 +110,15 @@ handlePavingPlotOutput = case _ of
 
 renderVisualiser :: forall m. (MonadAff m) => State -> H.ComponentHTML Action Slots m
 renderVisualiser state =
-  HH.table
-    [ HP.style "margin-left: 50px; margin-top: 20px;" ]
-    [ HH.tbody_
-        [ HH.tr_
-            [ HH.td
-                [ HP.rowSpan 2 ] -- the tree spans 2 rows, next to the plot and the problem details
-                [ HH.div
-                    [ HP.style "overflow:scroll; width: 400px;height:600px;" ]
-                    [ HH.slot _stepsReader _stepsReaderId StepsReader.component unit handleStepsReaderOutput
-                    , HH.slot _stepsTree _stepsTreeId StepsTree.component state.stepsState handleStepsTreeOutput
-                    ]
-                ]
-            , HH.td_
-                [ HH.div
-                    [ HP.style "margin-left: 20px;" ]
-                    [ HH.slot _pavingPlot _pavingPlotId PavingPlot.component state.stepsState handlePavingPlotOutput ]
-                ]
+  HH.div [ HP.classes [ BS5.m3 ] ]
+    [ HH.div [ HP.classes [ BS5.row ] ]
+        [ HH.div [ HP.classes [ BS5.col3, BS5.overflowScroll ], HP.style "height: 600px" ]
+            [ HH.slot _stepsReader _stepsReaderId StepsReader.component unit handleStepsReaderOutput
+            , HH.slot _stepsTree _stepsTreeId StepsTree.component state.stepsState handleStepsTreeOutput
             ]
-        , HH.tr_
-            [ HH.td_
-                [ HH.div
-                    [ HP.style "margin-left: 20px; overflow:scroll; width:450px;height:170px;" ]
-                    [ HH.slot_ _stepDetail _stepDetailId StepDetail.component (getStepInfo state) ]
-                ]
-            ]
+        , HH.div [ HP.classes [ BS5.col4, BS5.overflowScroll ], HP.style "height: 600px" ]
+            [ HH.slot_ _stepDetail _stepDetailId StepDetail.component (getStepInfo state) ]
+        , HH.div [ HP.classes [ BS5.col5, BS5.overflowScroll ], HP.style "height: 600px" ]
+            [ HH.slot _pavingPlot _pavingPlotId PavingPlot.component state.stepsState handlePavingPlotOutput ]
         ]
     ]

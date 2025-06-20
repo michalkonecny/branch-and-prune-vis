@@ -12,8 +12,7 @@ import Foreign (ForeignError(..))
 import Yoga.JSON (class ReadForeign, E, readImpl)
 -- import Debug 
 
-class FromString t where
-  fromString :: String -> Maybe t
+import App.Expr (class FromString, Expr(..), fromJustWithDefault, fromString)
 
 data BinaryComp = CompLeq | CompEq
 
@@ -56,29 +55,30 @@ instance FromString BinaryConn
   fromString "∨" = Just ConnOr
   fromString "⇒" = Just ConnImpl
   fromString _ = Nothing
-  -- fromString s = trace ("BinaryConn fromString failed for: " <> s) (\_ -> Nothing)
+
+-- fromString s = trace ("BinaryConn fromString failed for: " <> s) (\_ -> Nothing)
 
 data Form
-  = FormComp { comp :: BinaryComp, e1 :: String, e2 :: String }
+  = FormComp { comp :: BinaryComp, e1 :: Expr, e2 :: Expr }
   | FormUnary { uconn :: UnaryConn, f1 :: Form }
   | FormBinary { bconn :: BinaryConn, f1 :: Form, f2 :: Form }
   | FormIfThenElse { fc :: Form, ft :: Form, ff :: Form }
   | FormTrue
   | FormFalse
 
-type Form' = {
-  tag:: String,
-  comp :: Maybe String,
-  e1 :: Maybe String,
-  e2 :: Maybe String,
-  uconn :: Maybe String,
-  bconn :: Maybe String,
-  f1 :: Maybe Form,
-  f2 :: Maybe Form,
-  fc :: Maybe Form,
-  ft :: Maybe Form,
-  ff :: Maybe Form
-}
+type Form' =
+  { tag :: String
+  , comp :: Maybe String
+  , e1 :: Maybe Expr
+  , e2 :: Maybe Expr
+  , uconn :: Maybe String
+  , bconn :: Maybe String
+  , f1 :: Maybe Form
+  , f2 :: Maybe Form
+  , fc :: Maybe Form
+  , ft :: Maybe Form
+  , ff :: Maybe Form
+  }
 
 fromForm' :: Form' -> E Form
 fromForm'
@@ -96,8 +96,8 @@ fromForm'
   } =
   let
     comp = fromJustWithDefault CompEq $ fromString =<< maybeBinaryComp
-    e1 = fromJustWithDefault "dummy expression" maybeE1
-    e2 = fromJustWithDefault "dummy expression" maybeE2
+    e1 = fromJustWithDefault (ExprVar { var: "dummyExpr1" }) maybeE1
+    e2 = fromJustWithDefault (ExprVar { var: "dummyExpr2" }) maybeE2
     uconn = fromJustWithDefault ConnNeg $ fromString =<< maybeUnaryConn
     bconn = fromJustWithDefault ConnAnd $ fromString =<< maybeBinaryConn
     f1 = fromJustWithDefault FormTrue maybeF1
@@ -114,11 +114,6 @@ fromForm'
       "FormTrue" -> Right $ FormTrue
       "FormFalse" -> Right $ FormFalse
       _ -> Left (NonEmptyList $ ForeignError "Unrecognised step JSON" :| Nil)
-
-
-fromJustWithDefault :: forall t. t -> Maybe t -> t
-fromJustWithDefault _ (Just value) = value
-fromJustWithDefault def _ = def
 
 instance ReadForeign Form
   where

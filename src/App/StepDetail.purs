@@ -109,7 +109,7 @@ renderedStringDiv s = { html: HH.div [ formStyle ] [ HH.text s ], width: 1 + (St
 
 alignHorizOrVert :: forall cs m. Array { html :: H.ComponentHTML Action cs m, width :: Int } -> { html :: H.ComponentHTML Action cs m, width :: Int }
 alignHorizOrVert elements =
-  if widthHoriz < 50 then { html: htmlHoriz, width: widthHoriz }
+  if widthHoriz < 30 then { html: htmlHoriz, width: widthHoriz }
   else { html: htmlVert, width: widthVert }
   where
   widths = map (\e -> e.width) elements

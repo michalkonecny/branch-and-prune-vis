@@ -110,15 +110,15 @@ handlePavingPlotOutput = case _ of
 
 renderVisualiser :: forall m. (MonadAff m) => State -> H.ComponentHTML Action Slots m
 renderVisualiser state =
-  HH.div [ HP.classes [ BS5.m3 ] ]
+  HH.div [ HP.classes [ BS5.m1 ] ]
     [ HH.div [ HP.classes [ BS5.row ] ]
-        [ HH.div [ HP.classes [ BS5.col3, BS5.overflowScroll ], HP.style "height: 600px" ]
+        [ HH.div [ HP.classes [ BS5.col3, BS5.overflowAuto ], HP.style "height: 650px" ]
             [ HH.slot _stepsReader _stepsReaderId StepsReader.component unit handleStepsReaderOutput
             , HH.slot _stepsTree _stepsTreeId StepsTree.component state.stepsState handleStepsTreeOutput
             ]
-        , HH.div [ HP.classes [ BS5.col4, BS5.overflowScroll ], HP.style "height: 600px" ]
+        , HH.div [ HP.classes [ BS5.col4, BS5.overflowAuto ], HP.style "height: 650px" ]
             [ HH.slot_ _stepDetail _stepDetailId StepDetail.component (getStepInfo state) ]
-        , HH.div [ HP.classes [ BS5.col5, BS5.overflowScroll ], HP.style "height: 600px" ]
+        , HH.div [ HP.classes [ BS5.col5, BS5.overflowAuto ] ]
             [ HH.slot _pavingPlot _pavingPlotId PavingPlot.component state.stepsState handlePavingPlotOutput ]
         ]
     ]

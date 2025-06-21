@@ -26,7 +26,7 @@ plotSizeX :: Number
 plotSizeX = 400.0
 
 plotSizeY :: Number
-plotSizeY = 400.0
+plotSizeY = 350.0
 
 type Slot id = H.Slot Query Output id
 
@@ -114,7 +114,7 @@ renderStepsAsBoxes { stepsState, focusedStep, zoomedStep, plotX, plotY } =
         _ -> renderBoxes initProblem
   where
   renderBoxes initProblem =
-    HH.div [ HP.classes [ BS5.col ] ]
+    HH.div [ HP.classes [ BS5.dFlex ] ]
       [ HH.table_
           [ HH.tbody_
               [ HH.tr_ [ HH.td_ [ yAxisLabel ], HH.td_ [ plot ] ]
@@ -124,7 +124,7 @@ renderStepsAsBoxes { stepsState, focusedStep, zoomedStep, plotX, plotY } =
                   ]
               ]
           ]
-      , HH.div [ HP.classes [ BS5.dFlex ] ]
+      , HH.div [ HP.classes [ BS5.dFlex, BS5.flexColumn ] ]
           [ HH.button [ HE.onClick (\_ -> ZoomTo focusedStep) ] [ HH.text "🔍" ]
           , HH.button [ HE.onClick (\_ -> ZoomTo Nothing) ] [ HH.text "X" ]
           ]

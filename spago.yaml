@@ -10,6 +10,7 @@ package:
     - halogen-bootstrap5
     - halogen-subscriptions
     - halogen-svg-elems
+    - numbers
     - prelude
     - strings
     - tailrec

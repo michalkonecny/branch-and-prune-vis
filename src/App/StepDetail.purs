@@ -17,6 +17,7 @@ import Data.Array as Array
 import Data.Foldable (sum)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
+import Data.Number.Format as Num
 import Data.String as String
 import Data.Tuple (Tuple(..))
 import Effect.Aff.Class (class MonadAff)
@@ -72,7 +73,7 @@ renderFocusedStep (Just { problem }) =
   describeVar :: (Tuple Var Interval) -> Array _
   describeVar (Tuple var { l, u }) = [ HH.text descr, HH.br_ ]
     where
-    descr = var <> " ∈ [ " <> (show l) <> ", " <> show u <> " ]"
+    descr = var <> " ∈ [ " <> (showNumber l) <> ", " <> showNumber u <> " ]"
 
 renderForm :: forall cs m. Form -> { html :: H.ComponentHTML Action cs m, width :: Int }
 renderForm FormTrue = renderedString "True"
@@ -95,11 +96,14 @@ renderForm (FormIfThenElse { fc, ft, ff }) =
 
 renderExpr :: forall cs m. Expr -> { html :: H.ComponentHTML Action cs m, width :: Int }
 renderExpr (ExprVar { var }) = renderedStringDiv var
-renderExpr (ExprLit { lit }) = renderedStringDiv (show lit)
+renderExpr (ExprLit { lit }) = renderedStringDiv (showNumber lit)
 renderExpr (ExprUnary { unop, e1 }) =
   alignHorizOrVert [ renderedString (show unop), renderExpr e1 ]
 renderExpr (ExprBinary { binop, e1, e2 }) =
   alignHorizOrVert [ renderExpr e1, renderedString (show binop), renderExpr e2 ]
+
+showNumber ∷ Number → String
+showNumber = Num.toStringWith (Num.precision 5)
 
 renderedString :: forall cs m. String -> { html :: H.ComponentHTML Action cs m, width :: Int }
 renderedString s = { html: HH.text s, width: String.length s }

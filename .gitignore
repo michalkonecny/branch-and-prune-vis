@@ -15,3 +15,6 @@ package-lock.json
 .parcel-cache
 dist/
 *.code-workspace
+.stack-work/
+*~
+

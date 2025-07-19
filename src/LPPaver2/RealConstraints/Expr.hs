@@ -17,7 +17,7 @@ where
 import Data.Hashable (Hashable (hash))
 import Data.Map qualified as Map
 import GHC.Generics (Generic)
-import GHC.Records
+import GHC.Records (HasField (getField))
 import MixedTypesNumPrelude
 import Text.Printf (printf)
 import Prelude qualified as P
@@ -83,16 +83,16 @@ stringAndLevel = StringAndLevel
 showExprF :: (e -> StringAndLevel) -> ExprF e -> StringAndLevel
 showExprF showExpr exprNode =
   case exprNode of
-    (ExprVar var) -> stringAndLevel var 0
-    (ExprLit c) -> stringAndLevel (show (double c)) 0
-    (ExprUnary OpNeg e) -> stringAndLevel (printf "-%s" (showEL e 1)) 2
-    (ExprUnary OpSqrt e) -> stringAndLevel (printf "sqrt(%s)" (showE e)) 0
-    (ExprUnary OpSin e) -> stringAndLevel (printf "sin(%s)" (showE e)) 0
-    (ExprUnary OpCos e) -> stringAndLevel (printf "cos(%s)" (showE e)) 0
-    (ExprBinary OpPlus e1 e2) -> stringAndLevel (printf "%s + %s" (showEL e1 1) (showEL e2 1)) 2
-    (ExprBinary OpMinus e1 e2) -> stringAndLevel (printf "%s - %s" (showEL e1 1) (showEL e2 0)) 2
-    (ExprBinary OpTimes e1 e2) -> stringAndLevel (printf "%s⋅%s" (showEL e1 0) (showEL e2 0)) 1
-    (ExprBinary OpDivide e1 e2) -> stringAndLevel (printf "%s/%s" (showEL e1 0) (showEL e2 0)) 1
+    ExprVar var -> stringAndLevel var 0
+    ExprLit c -> stringAndLevel (show (double c)) 0
+    ExprUnary OpNeg e -> stringAndLevel (printf "-%s" (showEL e 1)) 2
+    ExprUnary OpSqrt e -> stringAndLevel (printf "sqrt(%s)" (showE e)) 0
+    ExprUnary OpSin e -> stringAndLevel (printf "sin(%s)" (showE e)) 0
+    ExprUnary OpCos e -> stringAndLevel (printf "cos(%s)" (showE e)) 0
+    ExprBinary OpPlus e1 e2 -> stringAndLevel (printf "%s + %s" (showEL e1 1) (showEL e2 1)) 2
+    ExprBinary OpMinus e1 e2 -> stringAndLevel (printf "%s - %s" (showEL e1 1) (showEL e2 0)) 2
+    ExprBinary OpTimes e1 e2 -> stringAndLevel (printf "%s⋅%s" (showEL e1 0) (showEL e2 0)) 1
+    ExprBinary OpDivide e1 e2 -> stringAndLevel (printf "%s/%s" (showEL e1 0) (showEL e2 0)) 1
   where
     showE e = (showExpr e).str
     showEL e (maxLevel :: Level)
@@ -148,6 +148,9 @@ exprSub = expr2 OpMinus
 exprTimes :: Expr -> Expr -> Expr
 exprTimes = expr2 OpTimes
 
+exprDivide :: Expr -> Expr -> Expr
+exprDivide = expr2 OpDivide
+
 -- Instances to conveniently build expressions using the usual numerical operators
 
 instance CanNeg Expr where
@@ -197,3 +200,15 @@ instance CanMulAsymmetric Expr Rational where
 instance CanMulAsymmetric Rational Expr where
   type MulType Rational Expr = Expr
   mul q = exprTimes (exprLit q)
+
+instance CanDiv Expr Expr where
+  type DivType Expr Expr = Expr
+  divide = exprDivide
+
+instance CanDiv Expr Rational where
+  type DivType Expr Rational = Expr
+  divide e q = exprDivide e (exprLit q)
+
+instance CanDiv Rational Expr where
+  type DivType Rational Expr = Expr
+  divide q = exprDivide (exprLit q)

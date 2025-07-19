@@ -1,22 +1,23 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# OPTIONS_GHC -Wno-partial-fields #-}
 
 module LPPaver2.RealConstraints.Expr
   ( Var,
-    Expr (..),
-    ExprStruct (..),
+    ExprF (..),
     UnaryOp (..),
     BinaryOp (..),
+    Expr (..),
+    ExprHash,
+    ExprNode,
     exprVar,
-    CanGetVarDomain (..),
     exprLit,
-    CanGetLiteral (..),
   )
 where
 
-import Data.Hashable (Hashable (hashWithSalt))
-import Data.Set as Set
+import Data.Hashable (Hashable (hash))
+import Data.Map qualified as Map
 import GHC.Generics (Generic)
+import GHC.Records
 import MixedTypesNumPrelude
 import Text.Printf (printf)
 import Prelude qualified as P
@@ -25,208 +26,174 @@ import Prelude qualified as P
 
 type Var = String
 
-data Expr b r = Expr
-  { eval :: b -> r,
-    vars :: Set.Set Var,
-    sampleR :: r,
-    structure :: ExprStruct (Expr b r),
-    opBindingLevel :: Int
-    {-
-      The binding level of the expression's root operators.
-      Operands of operators need to have lower level than the operator.
-      Adding brackets to achieve this.
-
-      Operator levels:
-        var, (...), f(...): 0
-        *: 1
-        /: 1
-        unary/binary -,+: 2
-        <=: 3
-        /\,\/: 4
-        ==>: 5
-    -}
-  }
-
-data ExprStruct expr
+data ExprF e
   = ExprVar {var :: Var}
   | ExprLit {lit :: Rational}
-  | ExprUnary {unop :: UnaryOp, e1 :: expr}
-  | ExprBinary {binop :: BinaryOp, e1 :: expr, e2 :: expr}
-  deriving (P.Eq, Generic)
+  | ExprUnary {unop :: UnaryOp, e1 :: e}
+  | ExprBinary {binop :: BinaryOp, e1 :: e, e2 :: e}
+  deriving (P.Eq, Generic, Hashable)
 
 data UnaryOp
   = OpNeg
   | OpSqrt
   | OpSin
   | OpCos
-  deriving (P.Eq, Generic)
-
-instance (Show UnaryOp) where
-  show OpNeg = "-"
-  show OpSqrt = "sqrt"
-  show OpSin = "sin"
-  show OpCos = "cos"
+  deriving (P.Eq, Generic, Hashable)
 
 data BinaryOp
   = OpPlus
   | OpMinus
   | OpTimes
   | OpDivide
-  deriving (P.Eq, Generic)
+  deriving (P.Eq, Generic, Hashable)
 
-instance (Show BinaryOp) where
-  show OpPlus = "+"
-  show OpMinus = "-"
-  show OpTimes = "*"
-  show OpDivide = "/"
+type ExprHash = Int
 
-instance Show (ExprStruct (Expr b r)) where
-  show (ExprVar var) = var
-  show (ExprLit c) = show (double c)
-  show (ExprUnary OpNeg e) = printf "-%s" (wrapDescription e 2)
-  show (ExprUnary OpSqrt e) = printf "sqrt(%s)" (show e)
-  show (ExprUnary OpSin e) = printf "sin(%s)" (show e)
-  show (ExprUnary OpCos e) = printf "cos(%s)" (show e)
-  show (ExprBinary OpPlus e1 e2) = printf "%s + %s" (wrapDescription e1 2) (wrapDescription e2 2)
-  show (ExprBinary OpMinus e1 e2) = printf "%s - %s" (wrapDescription e1 2) (wrapDescription e2 1)
-  show (ExprBinary OpTimes e1 e2) = printf "%s⋅%s" (wrapDescription e1 1) (wrapDescription e2 1)
-  show (ExprBinary OpDivide e1 e2) = printf "%s/%s" (wrapDescription e1 1) (wrapDescription e2 1)
+type ExprNode = ExprF ExprHash
 
-wrapDescription :: Expr b r -> Int -> String
-wrapDescription (Expr {..}) level
-  | opBindingLevel < level = show structure
-  | otherwise = "(" <> show structure <> ")"
+-- |
+--  Contains a dictionary indexed by hashes and a root hash that has to exist in the dictionary.
+--
+--  The dictionary's values are expression nodes.
+--  Each node refers to its sub-expressions using their hashes, which also have to be in the dictionary.
+--
+--  Thus, the expression trees are encoded indirectly and identical sub-expressions are kept only once.
+--
+--  These hashes can be used to efficiently associate any kind of values with the expression nodes.
+data Expr = Expr {nodes :: Map.Map ExprHash ExprNode, root :: ExprHash}
 
-instance Show (Expr b r) where
-  show expr = show expr.structure
+instance P.Eq Expr where
+  e1 == e2 = e1.root == e2.root
 
-instance P.Eq (Expr b r) where
-  expr1 == expr2 = expr1.structure P.== expr2.structure
+instance Show Expr where
+  show expr = (showExprHash expr.root).str
+    where
+      showExprHash exprHash =
+        case Map.lookup exprHash expr.nodes of
+          Nothing -> error "A hash is missing from expr.nodes"
+          Just exprNode -> showExprF showExprHash exprNode
 
-instance Hashable (Expr b r) where
-  hashWithSalt salt expr = hashWithSalt salt (show expr)
+type Level = Integer
 
-class CanGetVarDomain b r where
-  getVarDomain :: r -> b -> Var -> r
+data StringAndLevel = StringAndLevel {str :: String, level :: Level}
 
-exprVar :: (CanGetVarDomain b r) => r -> Var -> Expr b r
-exprVar sampleR var =
-  Expr
-    { eval = \b -> getVarDomain sampleR b var,
-      vars = Set.singleton var,
-      sampleR,
-      structure = ExprVar var,
-      opBindingLevel = 0
-    }
+stringAndLevel :: String -> Level -> StringAndLevel
+stringAndLevel = StringAndLevel
 
-class CanGetLiteral b r where
-  getLiteral :: r -> b -> Rational -> r
-
-exprLit :: (CanGetLiteral b r) => r -> Rational -> Expr b r
-exprLit sampleR literal =
-  Expr
-    { eval,
-      vars = Set.empty,
-      sampleR,
-      structure = ExprLit literal,
-      opBindingLevel = if literal < (0 :: Integer) then 2 else 0
-    }
+showExprF :: (e -> StringAndLevel) -> ExprF e -> StringAndLevel
+showExprF showExpr exprNode =
+  case exprNode of
+    (ExprVar var) -> stringAndLevel var 0
+    (ExprLit c) -> stringAndLevel (show (double c)) 0
+    (ExprUnary OpNeg e) -> stringAndLevel (printf "-%s" (showEL e 1)) 2
+    (ExprUnary OpSqrt e) -> stringAndLevel (printf "sqrt(%s)" (showE e)) 0
+    (ExprUnary OpSin e) -> stringAndLevel (printf "sin(%s)" (showE e)) 0
+    (ExprUnary OpCos e) -> stringAndLevel (printf "cos(%s)" (showE e)) 0
+    (ExprBinary OpPlus e1 e2) -> stringAndLevel (printf "%s + %s" (showEL e1 1) (showEL e2 1)) 2
+    (ExprBinary OpMinus e1 e2) -> stringAndLevel (printf "%s - %s" (showEL e1 1) (showEL e2 0)) 2
+    (ExprBinary OpTimes e1 e2) -> stringAndLevel (printf "%s⋅%s" (showEL e1 0) (showEL e2 0)) 1
+    (ExprBinary OpDivide e1 e2) -> stringAndLevel (printf "%s/%s" (showEL e1 0) (showEL e2 0)) 1
   where
-    eval scope = getLiteral sampleR scope literal
+    showE e = (showExpr e).str
+    showEL e (maxLevel :: Level)
+      | eSL.level <= maxLevel = eSL.str
+      | otherwise = "(" <> eSL.str <> ")"
+      where
+        eSL = showExpr e
 
-exprNeg :: (CanNegSameType r) => Expr b r -> Expr b r
-exprNeg e =
-  e
-    { eval = negate . e.eval,
-      structure = ExprUnary OpNeg e,
-      opBindingLevel = 2
-    }
+expr0 :: ExprNode -> Expr
+expr0 e =
+  Expr {nodes = Map.singleton root e, root}
+  where
+    root = hash e
 
-exprSqrt :: (CanSqrtSameType r) => Expr b r -> Expr b r
-exprSqrt e =
-  e
-    { eval = sqrt . e.eval,
-      structure = ExprUnary OpSqrt e,
-      opBindingLevel = 0
-    }
+expr1 :: UnaryOp -> Expr -> Expr
+expr1 unop e1 =
+  Expr {nodes = Map.insert h e e1.nodes, root = h}
+  where
+    e = ExprUnary {unop, e1 = e1.root}
+    h = hash e
 
-exprSin :: (CanSinCosSameType r) => Expr b r -> Expr b r
-exprSin e =
-  e
-    { eval = sin . e.eval,
-      structure = ExprUnary OpSin e,
-      opBindingLevel = 0
-    }
+expr2 :: BinaryOp -> Expr -> Expr -> Expr
+expr2 binop e1 e2 =
+  Expr {nodes = Map.insert h e $ Map.union e1.nodes e2.nodes, root = h}
+  where
+    e = ExprBinary {binop, e1 = e1.root, e2 = e2.root}
+    h = hash e
 
-exprCos :: (CanSinCosSameType r) => Expr b r -> Expr b r
-exprCos e =
-  e
-    { eval = cos . e.eval,
-      structure = ExprUnary OpCos e,
-      opBindingLevel = 0
-    }
+exprVar :: Var -> Expr
+exprVar var = expr0 $ ExprVar {var}
 
-exprPlus :: (CanAddSameType r) => Expr b r -> Expr b r -> Expr b r
-exprPlus e1 e2 =
-  Expr
-    { eval = \b -> e1.eval b + e2.eval b,
-      vars = e1.vars `Set.union` e2.vars,
-      sampleR = e1.sampleR,
-      structure = ExprBinary OpPlus e1 e2,
-      opBindingLevel = 2
-    }
+exprLit :: Rational -> Expr
+exprLit lit = expr0 $ ExprLit {lit}
 
-exprTimes :: (CanMulSameType r) => Expr b r -> Expr b r -> Expr b r
-exprTimes e1 e2 =
-  Expr
-    { eval = \b -> e1.eval b * e2.eval b,
-      vars = e1.vars `Set.union` e2.vars,
-      sampleR = e1.sampleR,
-      structure = ExprBinary OpTimes e1 e2,
-      opBindingLevel = 1
-    }
+exprNeg :: Expr -> Expr
+exprNeg = expr1 OpNeg
+
+exprSqrt :: Expr -> Expr
+exprSqrt = expr1 OpSqrt
+
+exprSin :: Expr -> Expr
+exprSin = expr1 OpSin
+
+exprCos :: Expr -> Expr
+exprCos = expr1 OpCos
+
+exprPlus :: Expr -> Expr -> Expr
+exprPlus = expr2 OpPlus
+
+exprSub :: Expr -> Expr -> Expr
+exprSub = expr2 OpMinus
+
+exprTimes :: Expr -> Expr -> Expr
+exprTimes = expr2 OpTimes
 
 -- Instances to conveniently build expressions using the usual numerical operators
 
-instance (CanNegSameType r) => CanNeg (Expr b r) where
-  type NegType (Expr b r) = Expr b r
+instance CanNeg Expr where
+  type NegType Expr = Expr
   negate = exprNeg
 
-instance (CanSqrtSameType r) => CanSqrt (Expr b r) where
-  type SqrtType (Expr b r) = Expr b r
+instance CanSqrt Expr where
+  type SqrtType Expr = Expr
   sqrt = exprSqrt
 
-instance (CanSinCosSameType r) => CanSinCos (Expr b r) where
-  type SinCosType (Expr b r) = Expr b r
+instance CanSinCos Expr where
+  type SinCosType Expr = Expr
   sin = exprSin
   cos = exprCos
 
-instance (CanAddSameType r) => CanAddAsymmetric (Expr b r) (Expr b r) where
-  type AddType (Expr b r) (Expr b r) = (Expr b r)
+instance CanAddAsymmetric Expr Expr where
+  type AddType Expr Expr = Expr
   add = exprPlus
 
-instance (CanAddSameType r, CanGetLiteral b r) => CanAddAsymmetric (Expr b r) Rational where
-  type AddType (Expr b r) Rational = (Expr b r)
-  add e q = exprPlus e (exprLit e.sampleR q)
+instance CanAddAsymmetric Expr Rational where
+  type AddType Expr Rational = Expr
+  add e q = exprPlus e (exprLit q)
 
-instance (CanAddSameType r, CanGetLiteral b r) => CanAddAsymmetric Rational (Expr b r) where
-  type AddType Rational (Expr b r) = (Expr b r)
-  add q e = exprPlus (exprLit e.sampleR q) e
+instance CanAddAsymmetric Rational Expr where
+  type AddType Rational Expr = Expr
+  add q = exprPlus (exprLit q)
 
-instance (CanNegSameType r, CanAddSameType r) => CanSub (Expr b r) (Expr b r)
+instance CanSub Expr Expr where
+  sub = exprSub
 
-instance (CanAddSameType r, CanGetLiteral b r) => CanSub (Expr b r) Rational
+instance CanSub Expr Rational where
+  type SubType Expr Rational = Expr
+  sub e q = exprSub e (exprLit q)
 
-instance (CanNegSameType r, CanAddSameType r, CanGetLiteral b r) => CanSub Rational (Expr b r)
+instance CanSub Rational Expr where
+  type SubType Rational Expr = Expr
+  sub q = exprSub (exprLit q)
 
-instance (CanMulSameType r) => CanMulAsymmetric (Expr b r) (Expr b r) where
-  type MulType (Expr b r) (Expr b r) = (Expr b r)
+instance CanMulAsymmetric Expr Expr where
+  type MulType Expr Expr = Expr
   mul = exprTimes
 
-instance (CanMulSameType r, CanGetLiteral b r) => CanMulAsymmetric (Expr b r) Rational where
-  type MulType (Expr b r) Rational = (Expr b r)
-  mul e q = exprTimes e (exprLit e.sampleR q)
+instance CanMulAsymmetric Expr Rational where
+  type MulType Expr Rational = Expr
+  mul e q = exprTimes e (exprLit q)
 
-instance (CanMulSameType r, CanGetLiteral b r) => CanMulAsymmetric Rational (Expr b r) where
-  type MulType Rational (Expr b r) = (Expr b r)
-  mul q e = exprTimes (exprLit e.sampleR q) e
+instance CanMulAsymmetric Rational Expr where
+  type MulType Rational Expr = Expr
+  mul q = exprTimes (exprLit q)

@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE RebindableSyntax #-}
 
 module LPPaver2.RealConstraints.Boxes
@@ -5,6 +6,7 @@ module LPPaver2.RealConstraints.Boxes
     Box (..),
     mkBox,
     Boxes (..),
+    splitBox,
   )
 where
 
@@ -12,6 +14,7 @@ import AERN2.MP (MPBall)
 import AERN2.MP qualified as MP
 import AERN2.MP.Affine.Type ()
 import AERN2.MP.Ball (CentreRadius (CentreRadius))
+import AERN2.MP.Ball.Type qualified as MP
 import AERN2.MP.Dyadic (dyadic)
 -- has instance Hashable MPBall (TODO: move that instance)
 
@@ -31,9 +34,7 @@ import Prelude qualified as P
 {- N-dimensional Boxes -}
 
 data Box = Box {varDomains :: Map.Map Var MP.MPBall, splitOrder :: [Var]}
-  deriving (Generic)
-
-instance Hashable Box
+  deriving (Generic, Hashable)
 
 instance Show Box where
   show (Box {..}) =
@@ -101,3 +102,32 @@ instance BP.IsSet Boxes where
 
 instance BP.BasicSetsToSet Box Boxes where
   basicSetsToSet = Boxes
+
+instance BP.CanSplitProblem constraint Box where
+  splitProblem (BP.Problem {scope, constraint}) =
+    map (\box -> BP.Problem {scope = box, constraint}) $ splitBox scope
+
+splitBox :: Box -> [Box]
+splitBox box = case box.splitOrder of
+  [] -> [box] -- No split order?? Perhaps there are no variables that can be split, ie are exact points.
+  (splitVar : splitRest) ->
+    -- We split the first variable in the list.
+    let splitOrder = splitRest ++ [splitVar] -- Cycle the variables round-robin-like.
+     in case Map.lookup splitVar box.varDomains of
+          Nothing -> [box] -- The split variable does not exist...
+          Just splitVarDomain ->
+            [ Box {varDomains = varDomainsL, splitOrder},
+              Box {varDomains = varDomainsU, splitOrder}
+            ]
+            where
+              (splitVarDomainL, splitVarDomainU) = splitMPBall splitVarDomain
+              varDomainsL = Map.insert splitVar splitVarDomainL box.varDomains
+              varDomainsU = Map.insert splitVar splitVarDomainU box.varDomains
+
+splitMPBall :: MPBall -> (MPBall, MPBall)
+splitMPBall b = (bL, bU)
+  where
+    (l, u) = MP.mpBallEndpoints b
+    m = (l + u) / 2 -- TODO: adjust precision if needed to get the exact middle
+    bL = MP.fromMPBallEndpoints l m
+    bU = MP.fromMPBallEndpoints m u

@@ -1,11 +1,13 @@
-module LPPaver2.RealConstraints.Eval.AffArith () where
+module LPPaver2.RealConstraints.EvalArithmetic.AffArith () where
 
 import AERN2.MP.Affine (MPAffine)
 import AERN2.MP.Affine qualified as Aff
 import Data.Map qualified as Map
-import LPPaver2.RealConstraints (CanGetLiteral (..), CanGetVarDomain (..), Var)
+import LPPaver2.RealConstraints (Var)
 import LPPaver2.RealConstraints.Boxes (Box (..))
+import LPPaver2.RealConstraints.Eval (CanGetVarDomain (..))
 import Text.Printf (printf)
+import Prelude
 
 boxGetVarDomain :: MPAffine -> Box -> Var -> MPAffine
 boxGetVarDomain sampleAff (Box {varDomains}) var =
@@ -15,8 +17,5 @@ boxGetVarDomain sampleAff (Box {varDomains}) var =
   where
     errId = var -- using variable's name as the error variable ID
 
-instance CanGetLiteral Box MPAffine where
-  getLiteral sampleAff _box = Aff.mpAffineWithSample sampleAff
-
-instance CanGetVarDomain Box MPAffine where
+instance CanGetVarDomain MPAffine where
   getVarDomain = boxGetVarDomain

@@ -3,7 +3,7 @@ module LPPaver2.RealConstraints.EvalArithmetic.AffArith () where
 import AERN2.MP.Affine (MPAffine)
 import AERN2.MP.Affine qualified as Aff
 import Data.Map qualified as Map
-import LPPaver2.RealConstraints (Var)
+import LPPaver2.RealConstraints.Expr (Var)
 import LPPaver2.RealConstraints.Boxes (Box (..))
 import LPPaver2.RealConstraints.Eval (CanGetVarDomain (..))
 import Text.Printf (printf)

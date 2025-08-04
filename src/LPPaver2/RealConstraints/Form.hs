@@ -3,14 +3,22 @@
 
 module LPPaver2.RealConstraints.Form
   ( Form (..),
+    FormHash,
+    FormNode,
+    FormF (..),
     UnaryConn (..),
     BinaryConn (..),
     BinaryComp (..),
+    formTrue,
+    formFalse,
+    getFormDecision,
     formImpl,
     formIfThenElse,
+    lookupFormNode,
   )
 where
 
+import AERN2.Kleenean (Kleenean (CertainFalse, CertainTrue, TrueOrFalse))
 import Data.Hashable (Hashable (hash))
 import Data.Map qualified as Map
 import GHC.Generics (Generic)
@@ -58,9 +66,19 @@ type FormNode = FormF FormHash
 
 data Form = Form
   { nodesE :: Map.Map ExprHash ExprNode,
+    -- | The map has to include all hashes reachable from the root, except FormTrue and FormFalse
     nodesF :: Map.Map FormHash FormNode,
     root :: FormHash
   }
+
+lookupFormNode :: Form -> FormHash -> FormNode
+lookupFormNode form h =
+  case Map.lookup h form.nodesF of
+    Just node -> node
+    Nothing
+      | h == formTrue.root -> FormTrue
+      | h == formFalse.root -> FormFalse
+      | otherwise -> error "Missing node in formula"
 
 instance P.Eq Form where
   f1 == f2 = f1.root == f2.root
@@ -136,6 +154,12 @@ formTrue = form0 FormTrue
 
 formFalse :: Form
 formFalse = form0 FormFalse
+
+getFormDecision :: Form -> Kleenean
+getFormDecision form
+  | form.root == formTrue.root = CertainTrue
+  | form.root == formFalse.root = CertainFalse
+  | otherwise = TrueOrFalse
 
 formLe :: Expr -> Expr -> Form
 formLe = formComp CompLe

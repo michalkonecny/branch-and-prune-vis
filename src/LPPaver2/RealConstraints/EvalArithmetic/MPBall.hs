@@ -2,7 +2,7 @@ module LPPaver2.RealConstraints.EvalArithmetic.MPBall () where
 
 import AERN2.MP (MPBall)
 import Data.Map qualified as Map
-import LPPaver2.RealConstraints (Var)
+import LPPaver2.RealConstraints.Expr (Var)
 import LPPaver2.RealConstraints.Boxes (Box (..))
 import LPPaver2.RealConstraints.Eval (CanGetVarDomain (..))
 import Text.Printf (printf)

@@ -24,7 +24,6 @@ import LPPaver2.RealConstraints.Expr
   )
 import LPPaver2.RealConstraints.Form
 import LPPaver2.RealConstraints.Form qualified as Form
-
 import MixedTypesNumPrelude
 
 class CanGetVarDomain r where
@@ -121,16 +120,30 @@ data EvaluatedForm r = EvaluatedForm
 
 data SimplifyFormResult r = SimplifyFormResult
   { evaluatedForm :: EvaluatedForm r,
-    oldToNew :: Map.Map FormHash FormHash
+    oldToNew :: OldToNew
   }
 
+-- utility for convenient extraction of all three result elements at once
+flattenResult :: SimplifyFormResult r -> (Form, Map.Map ExprHash r, OldToNew)
+flattenResult result = (result.evaluatedForm.form, result.evaluatedForm.exprValues, result.oldToNew)
+
+type OldToNew = Map.Map FormHash FormHash
+
 buildResult ::
-  SimplifyFormResult r -> FormHash -> EvaluatedForm r -> SimplifyFormResult r
-buildResult prevResult oldH evaluatedForm =
+  OldToNew -> FormHash -> EvaluatedForm r -> SimplifyFormResult r
+buildResult oldToNew oldH evaluatedForm =
   SimplifyFormResult
     { evaluatedForm,
-      oldToNew = Map.insert oldH evaluatedForm.form.root prevResult.oldToNew
+      oldToNew = Map.insert oldH evaluatedForm.form.root oldToNew
     }
+
+resultWithH :: SimplifyFormResult r -> FormHash -> SimplifyFormResult r
+resultWithH result h =
+  resultWithForm result (result.evaluatedForm.form {Form.root = h})
+
+resultWithForm :: SimplifyFormResult r -> Form -> SimplifyFormResult r
+resultWithForm result f =
+  result {evaluatedForm = result.evaluatedForm {form = f}}
 
 simplifyEvalForm ::
   ( CanGetVarDomain r,
@@ -161,85 +174,103 @@ simplifyEvalForm (sapleR :: r) box formInit =
     -- in all sub-formulas.  Prepare a shortcut for evaluating an expression given by its hash:
     evalEH eH = evalExpr sapleR box (Expr {nodes = formInit.nodesE, root = eH})
 
-    simplify :: (_) => SimplifyFormResult r -> SimplifyFormResult r
-    simplify resultSoFar =
-      simplifyNodeReusingPrev eForm.root
-      where
-        evaluatedForm = resultSoFar.evaluatedForm
-        eForm = evaluatedForm.form
-        exprValues0 = evaluatedForm.exprValues
+    simplifyH prevResult h = simplify (resultWithForm prevResult (formInit {Form.root = h}))
 
-        simplifyH h =
-          -- TODO pass resultPrev parameter
-          simplify
-            (resultSoFar {evaluatedForm = evaluatedForm {form = eForm {Form.root = h}}})
+    simplify :: (_) => SimplifyFormResult r -> SimplifyFormResult r
+    simplify result0 =
+      simplifyNodeReusingPrev form0.root
+      where
+        (form0, exprValues0, oldToNew0) = flattenResult result0
 
         simplifyNodeReusingPrev h =
-          case Map.lookup h resultSoFar.oldToNew of
-            -- if we have simplified this sub-formula previously, reuse the previous result
-            Just newH ->
-              resultSoFar {evaluatedForm = evaluatedForm {form = eForm {Form.root = newH}}} -- TODO avoid repeating this
-            Nothing ->
-              simplifyNode h
+          case getFormDecision form0 of
+            -- fast-track the trivial cases
+            CertainTrue -> result0
+            CertainFalse -> result0
+            _ ->
+              case Map.lookup h oldToNew0 of
+                -- if we have simplified this sub-formula previously, reuse the previous result
+                Just newH ->
+                  resultWithH result0 newH
+                Nothing ->
+                  simplifyNode h
 
         simplifyNode h =
           -- branch by the type of node
-          case lookupFormNode eForm h of
+          case lookupFormNode form0 h of
             FormComp binComp e1H e2H ->
               -- get the expression values and do the comparison
-              let valuesAfterE1 = evalEH e1H exprValues0
-                  e1Value = valuesAfterE1 Map.! e1H
-                  valuesAfterE2 = evalEH e2H valuesAfterE1
-                  e2Value = valuesAfterE2 Map.! e2H
+              let exprValues1 = evalEH e1H exprValues0
+                  e1Value = exprValues1 Map.! e1H
+                  exprValues12 = evalEH e2H exprValues1
+                  e2Value = exprValues12 Map.! e2H
                   comparison = case binComp of
                     CompLe -> e1Value < e2Value
                     CompLeq -> e1Value <= e2Value
                     CompEq -> e1Value == e2Value
                     CompNeq -> e1Value /= e2Value
-                  buildR (f :: Form) = buildResult resultSoFar h (EvaluatedForm {form = f, exprValues = valuesAfterE2})
+                  buildR (f :: Form) = buildResult oldToNew0 h (EvaluatedForm {form = f, exprValues = exprValues12})
                in case comparison of
                     -- if decided, replace by constant True/False, keeping track of evaluated expressions
                     CertainTrue -> buildR formTrue
                     CertainFalse -> buildR formFalse
                     -- if undecided, keep formula unchanged, keeping track of evaluated expressions
-                    _ -> buildR (eForm {Form.root = h})
+                    _ -> buildR (form0 {Form.root = h})
             FormUnary ConnNeg f1H ->
-              let f1Result = simplifyH f1H
-                  valuesAfterF1 = f1Result.evaluatedForm.exprValues
-                  buildR (f :: Form) = buildResult f1Result h (EvaluatedForm {form = f, exprValues = valuesAfterF1})
-               in case getFormDecision f1Result.evaluatedForm.form of
+              let result1 = simplifyH result0 f1H
+                  (simplifiedF1, exprValues1, oldToNew1) = flattenResult result1
+                  buildR (f :: Form) = buildResult oldToNew1 h (EvaluatedForm {form = f, exprValues = exprValues1})
+                  decision1 = getFormDecision simplifiedF1
+               in case decision1 of
                     CertainTrue -> buildR formFalse -- negating
                     CertainFalse -> buildR formTrue -- negating
-                    _ -> buildR (negate f1Result.evaluatedForm.form)
-            _ -> undefined
-
--- simplify (FormBinary ConnAnd f1 f2) =
---   case (simplify f1, simplify f2) of
---     (FormFalse, _) -> FormFalse
---     (_, FormFalse) -> FormFalse
---     (FormTrue, simplifiedF2) -> simplifiedF2
---     (simplifiedF1, FormTrue) -> simplifiedF1
---     (simplifiedF1, simplifiedF2) -> FormBinary ConnAnd simplifiedF1 simplifiedF2
--- simplify (FormBinary ConnOr f1 f2) =
---   case (simplify f1, simplify f2) of
---     (FormTrue, _) -> FormTrue
---     (_, FormTrue) -> FormTrue
---     (FormFalse, simplifiedF2) -> simplifiedF2
---     (simplifiedF1, FormFalse) -> simplifiedF1
---     (simplifiedF1, simplifiedF2) -> FormBinary ConnOr simplifiedF1 simplifiedF2
--- simplify (FormBinary ConnImpl f1 f2) =
---   case (simplify f1, simplify f2) of
---     (FormFalse, _) -> FormTrue
---     (_, FormTrue) -> FormTrue
---     (FormTrue, simplifiedF2) -> simplifiedF2
---     (simplifiedF1, FormFalse) -> FormUnary ConnNeg simplifiedF1
---     (simplifiedF1, simplifiedF2) -> FormBinary ConnImpl simplifiedF1 simplifiedF2
--- simplify (FormIfThenElse fc ft ff) =
---   case (simplify fc, simplify ft, simplify ff) of
---     (FormTrue, simplifiedT, _) -> simplifiedT
---     (FormFalse, _, simplifiedF) -> simplifiedF
---     (_, FormTrue, FormTrue) -> FormTrue
---     (_, FormFalse, FormFalse) -> FormFalse
---     (simplifiedC, simplifiedT, simplifiedF) -> FormIfThenElse simplifiedC simplifiedT simplifiedF
--- simplify FormTrue = FormTrue
--- simplify FormFalse = FormFalse
+                    _ -> buildR (negate simplifiedF1)
+            FormBinary binaryConn f1H f2H ->
+              let result1 = simplifyH result0 f1H
+                  (simplifiedF1, _, _) = flattenResult result1
+                  result2 = simplifyH result1 f2H
+                  (simplifiedF2, exprValues12, oldToNew12) = flattenResult result2
+                  buildR (f :: Form) = buildResult oldToNew12 h (EvaluatedForm {form = f, exprValues = exprValues12})
+                  decision1 = getFormDecision simplifiedF1
+                  decision2 = getFormDecision simplifiedF2
+               in case binaryConn of
+                    ConnAnd ->
+                      case (decision1, decision2) of
+                        (CertainFalse, _) -> buildR formFalse
+                        (_, CertainFalse) -> buildR formFalse
+                        (CertainTrue, _) -> buildR simplifiedF2
+                        (_, CertainTrue) -> buildR simplifiedF1
+                        _ -> buildR $ simplifiedF1 && simplifiedF2
+                    ConnOr ->
+                      case (decision1, decision2) of
+                        (CertainTrue, _) -> buildR formTrue
+                        (_, CertainTrue) -> buildR formTrue
+                        (CertainFalse, _) -> buildR simplifiedF2
+                        (_, CertainFalse) -> buildR simplifiedF1
+                        _ -> buildR $ simplifiedF1 || simplifiedF2
+                    ConnImpl ->
+                      case (decision1, decision2) of
+                        (CertainFalse, _) -> buildR formTrue
+                        (_, CertainTrue) -> buildR formTrue
+                        (CertainTrue, _) -> buildR simplifiedF2
+                        (_, CertainFalse) -> buildR $ negate simplifiedF1
+                        _ -> buildR $ formImpl simplifiedF1 simplifiedF2
+            FormIfThenElse fcH ftH ffH ->
+              let resultC = simplifyH result0 fcH
+                  (simplifiedC, _, _) = flattenResult resultC
+                  resultT = simplifyH resultC ftH
+                  (simplifiedT, _, _) = flattenResult resultT
+                  resultF = simplifyH resultT ffH
+                  (simplifiedF, exprValuesCTF, oldToNewCTF) = flattenResult resultF
+                  buildR (f :: Form) = buildResult oldToNewCTF h (EvaluatedForm {form = f, exprValues = exprValuesCTF})
+                  decisionC = getFormDecision simplifiedC
+                  decisionT = getFormDecision simplifiedC
+                  decisionF = getFormDecision simplifiedC
+               in case (decisionC, decisionT, decisionF) of
+                    (CertainTrue, _, _) -> buildR simplifiedT -- "then" branch
+                    (CertainFalse, _, _) -> buildR simplifiedF -- "else" branch
+                    (_, CertainTrue, CertainTrue) -> buildR formTrue -- undecided but both branches "true"
+                    (_, CertainFalse, CertainFalse) -> buildR formFalse -- undecided but both branches "false"
+                    _ -> buildR $ formIfThenElse simplifiedC simplifiedT simplifiedF -- undecided, keep if-then-else
+            FormTrue -> error "Internal error: FormTrue case should be caught earlier"
+            FormFalse -> error "Internal error: FormFalse case should be caught earlier"

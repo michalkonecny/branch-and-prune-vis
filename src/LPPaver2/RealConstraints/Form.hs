@@ -3,6 +3,7 @@
 
 module LPPaver2.RealConstraints.Form
   ( Form (..),
+    lookupFormNode,
     FormHash,
     FormNode,
     FormF (..),
@@ -14,7 +15,6 @@ module LPPaver2.RealConstraints.Form
     getFormDecision,
     formImpl,
     formIfThenElse,
-    lookupFormNode,
   )
 where
 
@@ -71,6 +71,9 @@ data Form = Form
     root :: FormHash
   }
 
+-- | Use this instead of `form.nodesF` to lookup a node in `form`.
+--
+-- This function understands True and False in addition to `form.nodesF`.
 lookupFormNode :: Form -> FormHash -> FormNode
 lookupFormNode form h =
   case Map.lookup h form.nodesF of
@@ -109,6 +112,7 @@ form0 f =
   where
     root = hash f
 
+-- | apply a unary connector to a form
 form1 :: UnaryConn -> Form -> Form
 form1 uconn f1 =
   Form {nodesE = f1.nodesE, nodesF = Map.insert h e f1.nodesF, root = h}
@@ -116,6 +120,7 @@ form1 uconn f1 =
     e = FormUnary {uconn, f1 = f1.root}
     h = hash e
 
+-- | apply a binary connector to a pair of forms
 form2 :: BinaryConn -> Form -> Form -> Form
 form2 bconn f1 f2 =
   Form

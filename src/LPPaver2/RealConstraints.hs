@@ -14,7 +14,7 @@ import LPPaver2.RealConstraints.EvalArithmetic.MPBall ()
 import LPPaver2.RealConstraints.EvalArithmetic.AffArith ()
 
 -- TODO remove all code below and restore module exports
--- Temporary ad-hoc testing follows
+-- Temporary ad-hoc testing code follows
 -- open using 
 -- > stack repl src/LPPaver2/RealConstraints.hs 
 
@@ -46,9 +46,12 @@ valueOf2X :: MPBall
 valueOf2X = evalResult Map.! (2.0*x).root
 
 f :: Form
-f = negate $ e == 3.0 -- True
+-- f = e == 3.0 -- False
+-- f = negate $ e == 3.0 -- True
 -- f = negate $ e == 2.0 -- undecided, unsimplified
--- f = negate $ e > 1.0 -- False
+-- f = negate $ 1.0 < e -- False
+-- f = 1.0 < e && 2.0 < e -- simplifies to 2.0 < e
+f = (1.0 < e && 2.0 < e) || 2.1 < e -- simplifies to 2.0 < e || 2.1 < e
 
 simplifyResult :: SimplifyFormResult MPBall
 simplifyResult = simplifyEvalForm sampleMB b f

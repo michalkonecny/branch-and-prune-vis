@@ -13,9 +13,9 @@ import LPPaver2.RealConstraints.Eval
 import LPPaver2.RealConstraints.EvalArithmetic.MPBall ()
 import LPPaver2.RealConstraints.EvalArithmetic.AffArith ()
 
--- TODO remove all code below and restore module exports
--- Temporary ad-hoc testing code follows
--- open using 
+{- Temporary ad-hoc testing code
+
+-- To use it, uncomment, disable export control and open this file using 
 -- > stack repl src/LPPaver2/RealConstraints.hs 
 
 import AERN2.MP
@@ -61,3 +61,5 @@ simplifiedF = simplifyResult.evaluatedForm.form
 
 oldToNewMap :: Map.Map FormHash FormHash
 oldToNewMap = simplifyResult.oldToNew
+
+-}

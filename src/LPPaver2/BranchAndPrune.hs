@@ -6,7 +6,6 @@ module LPPaver2.BranchAndPrune
     BoxPaving,
     BoxStep,
     BoxResult,
-    HasKleenanComparison,
     BoxBPParams (..),
     boxBranchAndPrune,
   )
@@ -20,7 +19,7 @@ import Control.Monad.Logger (MonadLogger)
 import Data.Map qualified as Map
 import GHC.Records
 import LPPaver2.RealConstraints.Boxes (Box (..), Boxes (..))
-import LPPaver2.RealConstraints.Eval (CanEval, EvaluatedForm (..), SimplifyFormResult (..), simplifyEvalForm)
+import LPPaver2.RealConstraints.Eval (CanEval, EvaluatedForm (..), HasKleenanComparison, SimplifyFormResult (..), simplifyEvalForm)
 import LPPaver2.RealConstraints.Form (Form, getFormDecision)
 import MixedTypesNumPrelude
 
@@ -31,13 +30,6 @@ type BoxPaving = BP.Paving Form Box Boxes
 type BoxStep = BP.Step BoxProblem BoxPaving
 
 type BoxResult = BP.Result Form Box Boxes
-
-type HasKleenanComparison r =
-  ( HasOrder r r,
-    OrderCompareType r r ~ Kleenean,
-    HasEq r r,
-    EqCompareType r r ~ Kleenean
-  )
 
 data BoxBPParams = BoxBPParams
   { problem :: BoxProblem,

@@ -5,6 +5,7 @@ module LPPaver2.RealConstraints.Eval
   ( CanGetVarDomain (..),
     CanEval,
     evalExpr,
+    HasKleenanComparison,
     simplifyEvalForm,
     SimplifyFormResult (..),
     EvaluatedForm (..),

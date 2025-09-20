@@ -6,7 +6,7 @@
 
 module Main (main) where
 
-import AERN2.MP (Kleenean, MPBall, mpBallP)
+import AERN2.MP (MPBall, mpBallP)
 import AERN2.MP qualified as MP
 import AERN2.MP.Affine (MPAffine (MPAffine), MPAffineConfig (..))
 import BranchAndPrune.BranchAndPrune
@@ -26,16 +26,16 @@ import Data.Maybe (fromJust)
 import LPPaver2.BranchAndPrune
   ( BoxBPParams (..),
     BoxProblem,
-    HasKleenanComparison,
     boxBranchAndPrune,
   )
 import LPPaver2.RealConstraints
-  ( Box (..),
-    CanEval (..),
+  ( 
+    mkBox,
     Expr,
     exprVar,
+    CanEval,
+    HasKleenanComparison,
     formImpl,
-    mkBox,
   )
 import MixedTypesNumPrelude
 import System.Environment (getArgs)
@@ -158,12 +158,12 @@ main = do
       error $ "unknown arithmetic: " ++ arith
 
 -- do-nothing trivial step reporting
-instance (Monad m) => CanInitControl m where
+instance (MonadIO m) => CanInitControl m where
   type ControlResources m = ()
   initControl = pure ()
   finaliseControl _ = pure ()
 
-instance (Monad m) => CanControlSteps m step where
+instance (MonadIO m) => CanControlSteps m step where
   reportStep _ _ = pure ()
 
 mainWithArgs ::

@@ -1,0 +1,99 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.38.1.
+--
+-- see: https://github.com/sol/hpack
+
+name:           LPPaver2
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/michalkonecny/LPPaver2#readme>
+homepage:       https://github.com/michalkonecny/branch-and-prune#readme
+bug-reports:    https://github.com/michalkonecny/branch-and-prune/issues
+author:         Michal Konecny, Junaid Rasheed
+maintainer:     mikkonecny@gmail.com
+copyright:      2025 Michal Konecny, Junaid Rasheed
+license:        BSD-3-Clause
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/michalkonecny/branch-and-prune
+
+library
+  exposed-modules:
+      LPPaver2.BranchAndPrune
+      LPPaver2.RealConstraints
+      LPPaver2.RealConstraints.Boxes
+      LPPaver2.RealConstraints.Eval
+      LPPaver2.RealConstraints.EvalArithmetic.AffArith
+      LPPaver2.RealConstraints.EvalArithmetic.MPBall
+      LPPaver2.RealConstraints.Expr
+      LPPaver2.RealConstraints.Form
+  other-modules:
+      Paths_LPPaver2
+  autogen-modules:
+      Paths_LPPaver2
+  hs-source-dirs:
+      src
+  default-extensions:
+      GHC2021
+      RebindableSyntax
+      DuplicateRecordFields
+      RecordWildCards
+      OverloadedRecordDot
+      TypeFamilies
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-orphans
+  build-depends:
+      aern2-affarith
+    , aern2-mp
+    , aeson
+    , base >=4.7 && <5
+    , branch-and-prune
+    , bytestring
+    , containers
+    , hashable
+    , hedis
+    , mixed-types-num
+    , monad-logger
+    , text
+    , time
+    , unliftio-core
+  default-language: Haskell2010
+
+executable lppaver2-example
+  main-is: runExample.hs
+  other-modules:
+      Paths_LPPaver2
+  autogen-modules:
+      Paths_LPPaver2
+  hs-source-dirs:
+      cli-app
+  default-extensions:
+      GHC2021
+      RebindableSyntax
+      DuplicateRecordFields
+      RecordWildCards
+      OverloadedRecordDot
+      TypeFamilies
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -Wno-orphans -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      LPPaver2
+    , aern2-affarith
+    , aern2-mp
+    , aeson
+    , base >=4.7 && <5
+    , branch-and-prune
+    , bytestring
+    , containers
+    , hashable
+    , hedis
+    , mixed-types-num
+    , monad-logger
+    , text
+    , time
+    , unliftio-core
+  default-language: Haskell2010

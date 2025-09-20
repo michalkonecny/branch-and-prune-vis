@@ -24,7 +24,7 @@ import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import LPPaver2.BranchAndPrune
-  ( LPPParams (..),
+  ( LPPBPParams (..),
     LPPProblem,
     lppBranchAndPrune,
   )
@@ -177,7 +177,7 @@ mainWithArgs sampleR (problem, giveUpAccuracy, maxThreads, isVerbose) =
     task = do
       (Result paving _) <-
         lppBranchAndPrune sampleR
-          $ LPPParams
+          $ LPPBPParams
             { maxThreads,
               giveUpAccuracy = giveUpAccuracy,
               problem,

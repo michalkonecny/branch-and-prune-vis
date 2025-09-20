@@ -5,8 +5,8 @@ module LPPaver2.BranchAndPrune
     LPPProblem,
     LPPPaving,
     LPPStep,
-    LPPResult,
-    LPPParams (..),
+    LPPBPResult,
+    LPPBPParams (..),
     lppBranchAndPrune,
   )
 where
@@ -44,9 +44,9 @@ type LPPPaving = AbstrBP.Paving Form Box Boxes
 
 type LPPStep = AbstrBP.Step LPPProblem LPPPaving
 
-type LPPResult = AbstrBP.Result Form Box Boxes
+type LPPBPResult = AbstrBP.Result Form Box Boxes
 
-data LPPParams = LPPParams
+data LPPBPParams = LPPBPParams
   { problem :: LPPProblem,
     maxThreads :: Int,
     giveUpAccuracy :: Rational,
@@ -70,9 +70,9 @@ lppBranchAndPrune ::
     AbstrBP.CanControlSteps m LPPStep
   ) =>
   r ->
-  LPPParams ->
-  m LPPResult
-lppBranchAndPrune sampleR (LPPParams {..}) = do
+  LPPBPParams ->
+  m LPPBPResult
+lppBranchAndPrune sampleR (LPPBPParams {..}) = do
   -- conn <- liftIO $ Redis.checkedConnect Redis.defaultConnectInfo
   AbstrBP.branchAndPruneM
     ( AbstrBP.Params

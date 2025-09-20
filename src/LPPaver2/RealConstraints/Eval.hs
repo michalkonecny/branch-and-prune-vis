@@ -2,8 +2,9 @@
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
 
 module LPPaver2.RealConstraints.Eval
-  ( evalExpr,
-    CanGetVarDomain (..),
+  ( CanGetVarDomain (..),
+    CanEval,
+    evalExpr,
     simplifyEvalForm,
     SimplifyFormResult (..),
     EvaluatedForm (..),
@@ -30,14 +31,17 @@ class CanGetVarDomain r where
   -- | the first parameter is a value sample to help type inference
   getVarDomain :: r -> Box -> Var -> r
 
-evalExpr ::
+type CanEval r =
   ( CanGetVarDomain r,
     Ring r,
     CanDivSameType r,
     HasRationalsWithSample r,
     CanSqrtSameType r,
     CanSinCosSameType r
-  ) =>
+  )
+
+evalExpr ::
+  (CanEval r) =>
   r ->
   Box ->
   Expr ->
@@ -146,14 +150,7 @@ resultWithForm result f =
   result {evaluatedForm = result.evaluatedForm {form = f}}
 
 simplifyEvalForm ::
-  ( CanGetVarDomain r,
-    Ring r,
-    CanDivSameType r,
-    HasRationalsWithSample r,
-    CanSqrtSameType r,
-    CanSinCosSameType r,
-    HasKleenanComparison r
-  ) =>
+  (CanEval r, HasKleenanComparison r) =>
   r ->
   Box ->
   Form ->

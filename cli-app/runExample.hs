@@ -9,7 +9,13 @@ module Main (main) where
 import AERN2.MP (Kleenean, MPBall, mpBallP)
 import AERN2.MP qualified as MP
 import AERN2.MP.Affine (MPAffine (MPAffine), MPAffineConfig (..))
-import BranchAndPrune.BranchAndPrune (CanControlSteps (..), CanInitControl (..), Problem (..), Result (Result), showPavingSummary)
+import BranchAndPrune.BranchAndPrune
+  ( CanControlSteps (..),
+    CanInitControl (..),
+    Problem (..),
+    Result (Result),
+    showPavingSummary,
+  )
 -- import GHC.Records
 
 import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
@@ -17,14 +23,16 @@ import Control.Monad.Logger (MonadLogger, runStdoutLoggingT)
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
+import LPPaver2.BranchAndPrune
+  ( BoxBPParams (..),
+    BoxProblem,
+    HasKleenanComparison,
+    boxBranchAndPrune,
+  )
 import LPPaver2.RealConstraints
   ( Box (..),
-    BoxBPParams (..),
-    BoxProblem,
-    CanGetLiteral,
-    CanGetVarDomain,
+    CanEval (..),
     Expr,
-    boxBranchAndPrune,
     exprVar,
     formImpl,
     mkBox,
@@ -32,24 +40,8 @@ import LPPaver2.RealConstraints
 import MixedTypesNumPrelude
 import System.Environment (getArgs)
 
--- import qualified Prelude as P
-
-type ProblemR r =
-  ( CanGetVarDomain Box r,
-    CanGetLiteral Box r,
-    CanAddSameType r,
-    CanMulSameType r,
-    CanNegSameType r,
-    CanSqrtSameType r,
-    CanSinCosSameType r,
-    HasOrderAsymmetric r r,
-    OrderCompareType r r ~ Kleenean,
-    HasEqAsymmetric r r,
-    EqCompareType r r ~ Kleenean
-  )
-
-problems :: (ProblemR r) => r -> Rational -> Map.Map String (BoxProblem r)
-problems (sampleR :: r) eps =
+problems :: Rational -> Map.Map String BoxProblem
+problems eps =
   Map.fromList
     [ ( "transitivityEps",
         Problem
@@ -116,10 +108,10 @@ problems (sampleR :: r) eps =
       )
     ]
   where
-    x = exprVar sampleR "x" :: ExprB r
-    y = exprVar sampleR "y" :: ExprB r
-    z = exprVar sampleR "z" :: ExprB r
-    r1 = exprVar sampleR "r1" :: ExprB r
+    x = exprVar "x" :: Expr
+    y = exprVar "y" :: Expr
+    z = exprVar "z" :: Expr
+    r1 = exprVar "r1" :: Expr
 
 sampleMPBall :: MPBall
 sampleMPBall = mpBallP (MP.prec 1000) 0
@@ -130,23 +122,23 @@ sampleMPAffine = MPAffine _conf (convertExactly 0) Map.empty
     _conf :: MPAffineConfig
     _conf = MPAffineConfig {maxTerms = int 10, precision = 1000}
 
-processArgs :: (ProblemR r) => r -> [String] -> (BoxProblem r, Rational, Int, Bool)
-processArgs sampleR [probS, epsS, giveUpAccuracyS, maxThreadsS, verboseS] =
+processArgs :: [String] -> (BoxProblem, Rational, Int, Bool)
+processArgs [probS, epsS, giveUpAccuracyS, maxThreadsS, verboseS] =
   (prob, giveUpAccuracy, maxThreads, isVerbose)
   where
-    prob = fromJust $ Map.lookup probS (problems sampleR eps)
+    prob = fromJust $ Map.lookup probS (problems eps)
     eps = toRational (read epsS :: Double)
     giveUpAccuracy = toRational (read giveUpAccuracyS :: Double)
     maxThreads = read maxThreadsS :: Int
     isVerbose = verboseS == "verbose"
-processArgs _ _ =
+processArgs _ =
   error
     $ "Failed to match args.  Expected args: arithmetic problem eps giveUpAccuracy maxThreads verbose/silent"
     ++ "\n Available arithmetics: IA, AA"
     ++ "\n Available problems: "
     ++ List.concatMap ("\n" ++) problemNames
   where
-    problemNames = Map.keys $ problems sampleMPBall 0.0
+    problemNames = Map.keys $ problems 0.0
 
 -- |
 -- Example runs:
@@ -159,9 +151,9 @@ main = do
   (arith : args) <- getArgs
   case arith of
     "IA" ->
-      mainWithArgs $ processArgs sampleMPBall args
+      mainWithArgs sampleMPBall $ processArgs args
     "AA" ->
-      mainWithArgs $ processArgs sampleMPAffine args
+      mainWithArgs sampleMPAffine $ processArgs args
     _ ->
       error $ "unknown arithmetic: " ++ arith
 
@@ -174,14 +166,18 @@ instance (Monad m) => CanInitControl m where
 instance (Monad m) => CanControlSteps m step where
   reportStep _ _ = pure ()
 
-mainWithArgs :: (ProblemR r) => (BoxProblem r, Rational, Int, Bool) -> IO ()
-mainWithArgs (problem, giveUpAccuracy, maxThreads, isVerbose) =
+mainWithArgs ::
+  (CanEval r, HasKleenanComparison r) =>
+  r ->
+  (BoxProblem, Rational, Int, Bool) ->
+  IO ()
+mainWithArgs sampleR (problem, giveUpAccuracy, maxThreads, isVerbose) =
   runStdoutLoggingT task
   where
     task :: (MonadLogger m, MonadUnliftIO m) => m ()
     task = do
       (Result paving _) <-
-        boxBranchAndPrune
+        boxBranchAndPrune sampleR
           $ BoxBPParams
             { maxThreads,
               giveUpAccuracy = giveUpAccuracy,

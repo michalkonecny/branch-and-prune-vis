@@ -7,7 +7,6 @@ module LPPaver2.RealConstraints.Boxes
     mkBox,
     Boxes (..),
     splitBox,
-    BoxProblem,
   )
 where
 
@@ -31,7 +30,6 @@ import LPPaver2.RealConstraints.Expr (Var)
 import MixedTypesNumPrelude
 import Text.Printf (printf)
 import Prelude qualified as P
-import LPPaver2.RealConstraints.Form (Form)
 
 {- N-dimensional Boxes -}
 
@@ -133,5 +131,3 @@ splitMPBall b = (bL, bU)
     m = (l + u) / 2 -- TODO: adjust precision if needed to get the exact middle
     bL = MP.fromMPBallEndpoints l m
     bU = MP.fromMPBallEndpoints m u
-
-type BoxProblem = BP.Problem Form Box

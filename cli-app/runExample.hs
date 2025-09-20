@@ -9,33 +9,15 @@ module Main (main) where
 import AERN2.MP (MPBall, mpBallP)
 import AERN2.MP qualified as MP
 import AERN2.MP.Affine (MPAffine (MPAffine), MPAffineConfig (..))
-import BranchAndPrune.BranchAndPrune
-  ( CanControlSteps (..),
-    CanInitControl (..),
-    Problem (..),
-    Result (Result),
-    showPavingSummary,
-  )
--- import GHC.Records
-
+import BranchAndPrune.BranchAndPrune (Problem (..), Result (..))
+import BranchAndPrune.BranchAndPrune qualified as BP
 import Control.Monad.IO.Unlift (MonadIO (liftIO), MonadUnliftIO)
 import Control.Monad.Logger (MonadLogger, runStdoutLoggingT)
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import LPPaver2.BranchAndPrune
-  ( LPPBPParams (..),
-    LPPProblem,
-    lppBranchAndPrune,
-  )
 import LPPaver2.RealConstraints
-  ( CanEval,
-    Expr,
-    HasKleenanComparison,
-    exprVar,
-    formImpl,
-    mkBox,
-  )
 import MixedTypesNumPrelude
 import System.Environment (getArgs)
 
@@ -157,12 +139,12 @@ main = do
       error $ "unknown arithmetic: " ++ arith
 
 -- do-nothing trivial step reporting
-instance (MonadIO m) => CanInitControl m where
+instance (MonadIO m) => BP.CanInitControl m where
   type ControlResources m = ()
   initControl = pure ()
   finaliseControl _ = pure ()
 
-instance (MonadIO m) => CanControlSteps m step where
+instance (MonadIO m) => BP.CanControlSteps m step where
   reportStep _ _ = pure ()
 
 mainWithArgs ::
@@ -183,4 +165,4 @@ mainWithArgs sampleR (problem, giveUpAccuracy, maxThreads, isVerbose) =
               problem,
               shouldLog = isVerbose
             }
-      liftIO $ putStrLn $ showPavingSummary paving
+      liftIO $ putStrLn $ BP.showPavingSummary paving

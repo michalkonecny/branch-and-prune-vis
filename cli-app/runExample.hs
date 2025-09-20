@@ -24,23 +24,22 @@ import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import LPPaver2.BranchAndPrune
-  ( BoxBPParams (..),
-    BoxProblem,
-    boxBranchAndPrune,
+  ( LPPParams (..),
+    LPPProblem,
+    lppBranchAndPrune,
   )
 import LPPaver2.RealConstraints
-  ( 
-    mkBox,
+  ( CanEval,
     Expr,
-    exprVar,
-    CanEval,
     HasKleenanComparison,
+    exprVar,
     formImpl,
+    mkBox,
   )
 import MixedTypesNumPrelude
 import System.Environment (getArgs)
 
-problems :: Rational -> Map.Map String BoxProblem
+problems :: Rational -> Map.Map String LPPProblem
 problems eps =
   Map.fromList
     [ ( "transitivityEps",
@@ -122,7 +121,7 @@ sampleMPAffine = MPAffine _conf (convertExactly 0) Map.empty
     _conf :: MPAffineConfig
     _conf = MPAffineConfig {maxTerms = int 10, precision = 1000}
 
-processArgs :: [String] -> (BoxProblem, Rational, Int, Bool)
+processArgs :: [String] -> (LPPProblem, Rational, Int, Bool)
 processArgs [probS, epsS, giveUpAccuracyS, maxThreadsS, verboseS] =
   (prob, giveUpAccuracy, maxThreads, isVerbose)
   where
@@ -169,7 +168,7 @@ instance (MonadIO m) => CanControlSteps m step where
 mainWithArgs ::
   (CanEval r, HasKleenanComparison r) =>
   r ->
-  (BoxProblem, Rational, Int, Bool) ->
+  (LPPProblem, Rational, Int, Bool) ->
   IO ()
 mainWithArgs sampleR (problem, giveUpAccuracy, maxThreads, isVerbose) =
   runStdoutLoggingT task
@@ -177,8 +176,8 @@ mainWithArgs sampleR (problem, giveUpAccuracy, maxThreads, isVerbose) =
     task :: (MonadLogger m, MonadUnliftIO m) => m ()
     task = do
       (Result paving _) <-
-        boxBranchAndPrune sampleR
-          $ BoxBPParams
+        lppBranchAndPrune sampleR
+          $ LPPParams
             { maxThreads,
               giveUpAccuracy = giveUpAccuracy,
               problem,

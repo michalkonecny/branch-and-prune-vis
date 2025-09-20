@@ -5,8 +5,11 @@ module LPPaver2.RealConstraints.Boxes
   ( --
     Box (..),
     mkBox,
-    Boxes (..),
+    boxAreaD,
     splitBox,
+    Boxes (..),
+    boxesCount,
+    boxesAreaD,
   )
 where
 
@@ -18,8 +21,6 @@ import AERN2.MP.Ball.Type qualified as MP
 import AERN2.MP.Dyadic (dyadic)
 -- has instance Hashable MPBall (TODO: move that instance)
 
-import BranchAndPrune.BranchAndPrune qualified as BP
-import BranchAndPrune.Sets (Subset)
 import Data.Hashable (Hashable)
 import Data.List (sortOn)
 import Data.List qualified as List
@@ -87,25 +88,6 @@ boxesCount (BoxesUnion union) = sum (map boxesCount union)
 boxesAreaD :: Boxes -> Double
 boxesAreaD (Boxes boxes) = sum (map boxAreaD boxes)
 boxesAreaD (BoxesUnion union) = sum (map boxesAreaD union)
-
-instance BP.ShowStats (Subset Boxes Box) where
-  showStats (BP.Subset {..}) =
-    printf "{|boxes| = %d, coverage = %3.4f%%}" (boxesCount subset) coveragePercent
-    where
-      coveragePercent = 100 * (boxesAreaD subset / boxAreaD superset)
-
-instance BP.IsSet Boxes where
-  emptySet = Boxes []
-  setIsEmpty (Boxes boxes) = null boxes
-  setIsEmpty (BoxesUnion union) = List.all BP.setIsEmpty union
-  setUnion bs1 bs2 = BoxesUnion [bs1, bs2]
-
-instance BP.BasicSetsToSet Box Boxes where
-  basicSetsToSet = Boxes
-
-instance BP.CanSplitProblem constraint Box where
-  splitProblem (BP.Problem {scope, constraint}) =
-    map (\box -> BP.Problem {scope = box, constraint}) $ splitBox scope
 
 splitBox :: Box -> [Box]
 splitBox box = case box.splitOrder of
